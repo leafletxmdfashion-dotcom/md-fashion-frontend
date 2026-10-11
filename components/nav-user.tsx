@@ -32,11 +32,11 @@ export function NavUser({ user }: { user: CurrentUser }) {
           <DropdownMenuTrigger
             render={<SidebarMenuButton size="lg" className="data-popup-open:bg-sidebar-accent" />}
           >
-            <Avatar className="size-7 rounded-md">
+            <Avatar className="size-8 rounded-md">
               <AvatarFallback className="rounded-md text-[11px]">{initials(user.name)}</AvatarFallback>
             </Avatar>
             <div className="grid flex-1 text-left leading-tight">
-              <span className="truncate text-[13px] font-medium">{user.name}</span>
+              <span className="truncate text-sm font-medium">{user.name}</span>
               <span className="truncate text-xs text-muted-foreground">{user.role.name}</span>
             </div>
             <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />

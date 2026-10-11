@@ -48,9 +48,11 @@ export function LoginForm() {
 
   return (
     <>
-      <AuthHeading title="Log in to Garment Manager" />
+      <AuthHeading title="Welcome back" description="Log in to your MD Fashion account." />
       <form onSubmit={onSubmit} noValidate className="grid gap-4">
-        {errors.root?.server ? <FormAlert>{errors.root.server.message}</FormAlert> : null}
+        {errors.root?.server ? (
+          <FormAlert>{errors.root.server.message}</FormAlert>
+        ) : null}
         <Field id="email" label="Email" error={errors.email?.message}>
           <Input
             {...fieldProps("email", errors.email?.message)}
@@ -82,12 +84,15 @@ export function LoginForm() {
           />
         </Field>
         <Button type="submit" className="mt-1 w-full" disabled={isSubmitting}>
-          {isSubmitting ? <Loader2 className="animate-spin" aria-hidden /> : null}
+          {isSubmitting ? (
+            <Loader2 className="animate-spin" aria-hidden />
+          ) : null}
           {isSubmitting ? "Signing in…" : "Continue"}
         </Button>
       </form>
       <p className="mt-6 text-center text-xs leading-5 text-muted-foreground">
-        Accounts are created by invitation. Ask an administrator if you need access.
+        Accounts are created by invitation. Ask an administrator if you need
+        access.
       </p>
     </>
   );

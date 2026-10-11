@@ -14,6 +14,8 @@ export interface NavItem {
   icon: LucideIcon;
   permission?: Permission;
   exact?: boolean;
+  /** Marks a module with no page yet: app/(dashboard)/[...slug] serves it. Remove once built. */
+  description?: string;
   items?: NavSubItem[];
 }
 

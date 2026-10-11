@@ -3,10 +3,10 @@ import type * as React from "react";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
-/** Linear-style top bar: compact, hairline border, title left, actions right. */
+/** Top bar: same surface as the sidebar, hairline border, title left, actions right. */
 export function PageHeader({ title, actions }: { title: string; actions?: React.ReactNode }) {
   return (
-    <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-sidebar px-3">
       <SidebarTrigger className="-ml-1 text-muted-foreground" />
       <Separator orientation="vertical" className="mr-1 data-[orientation=vertical]:h-4" />
       <h1 className="truncate text-[13px] font-medium">{title}</h1>

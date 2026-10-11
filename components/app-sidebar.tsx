@@ -22,7 +22,10 @@ import type { CurrentUser } from "@/features/auth/types/auth.types";
 
 export function AppSidebar({ user }: { user: CurrentUser }) {
   // Visibility only; every route's data is still authorized by the API.
-  const groups = useMemo(() => filterNavigation(navigation, user.permissions), [user.permissions]);
+  const groups = useMemo(
+    () => filterNavigation(navigation, user.permissions),
+    [user.permissions],
+  );
 
   return (
     <Sidebar collapsible="icon">
@@ -30,8 +33,16 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/dashboard" />}>
-              <BrandMark />
-              <span className="truncate text-[13px] font-semibold tracking-tight">Garment Manager</span>
+              {/* Menu buttons size every svg as an icon; the logo opts out. */}
+              <BrandMark className="h-auto! w-10! group-data-[collapsible=icon]:w-9!" />
+              <span className="grid leading-tight">
+                <span className="truncate text-[15px] font-semibold tracking-tight">
+                  MD Fashion
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  Garment Manager
+                </span>
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

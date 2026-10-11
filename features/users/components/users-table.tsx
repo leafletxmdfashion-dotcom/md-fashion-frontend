@@ -22,7 +22,7 @@ function StatusLabel({ user }: { user: ManagedUser }) {
     : user.status === "LOCKED" ? ["Locked", "bg-warning"]
     : user.status === "DISABLED" ? ["Disabled", "bg-muted-foreground/50"]
     : expired ? ["Invite expired", "bg-muted-foreground/50"]
-    : ["Invited", "bg-primary"];
+    : ["Invited", "bg-info"];
   return (
     <span className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground">
       <span className={cn("size-1.5 rounded-full", dot)} aria-hidden />

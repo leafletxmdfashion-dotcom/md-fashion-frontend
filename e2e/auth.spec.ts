@@ -13,7 +13,7 @@ test.describe("authentication", () => {
 
     await login(page, "owner@garment.test");
     await expect(page).toHaveURL(/\/users$/);
-    await expect(page.getByRole("heading", { name: "Members" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
     await expect(page.getByRole("cell", { name: /staff@garment\.test/ })).toBeVisible();
   });
 
@@ -36,8 +36,8 @@ test.describe("authentication", () => {
     await expect(page).toHaveURL(/\/dashboard$/);
 
     const sidebar = page.locator("[data-sidebar=sidebar]").first();
-    await expect(sidebar.getByRole("link", { name: "Orders" })).toBeVisible();
-    await expect(sidebar.getByRole("link", { name: "Members" })).toHaveCount(0);
+    await expect(sidebar.getByRole("link", { name: "Fabric Master" })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: "Users" })).toHaveCount(0);
     await expect(sidebar.getByRole("link", { name: "Settings" })).toHaveCount(0);
 
     await page.goto("/users");
@@ -96,6 +96,7 @@ test.describe("authentication", () => {
   test("an owner invites a member who accepts and signs in", async ({ page, browser }) => {
     await page.goto("/login");
     await login(page, "owner@garment.test");
+    await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto("/users");
 
     await page.getByRole("button", { name: "Invite member" }).click();
@@ -111,7 +112,7 @@ test.describe("authentication", () => {
     const invitee = await browser.newContext();
     const invitePage = await invitee.newPage();
     await invitePage.goto(inviteUrl);
-    await expect(invitePage.getByRole("heading", { name: "Join Garment Manager" })).toBeVisible();
+    await expect(invitePage.getByRole("heading", { name: "Join MD Fashion" })).toBeVisible();
     await invitePage.getByLabel("Password", { exact: true }).fill("my brand new passphrase");
     await invitePage.getByLabel("Confirm password").fill("my brand new passphrase");
     await invitePage.getByRole("button", { name: "Activate account" }).click();

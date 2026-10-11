@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Garment Manager", template: "%s · Garment Manager" },
+  title: { default: "MD Fashion", template: "%s · MD Fashion" },
   description: "Garment production, inventory and order management.",
   robots: { index: false, follow: false },
 };
