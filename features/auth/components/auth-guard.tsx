@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
+import { AppShellSkeleton } from "@/components/app-shell-skeleton";
 import { Button } from "@/components/ui/button";
 import { loginPathFor } from "@/lib/safe-redirect";
 
@@ -44,11 +45,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (isPending) return <AppShellSkeleton />;
+
   return (
     <FullPageStatus>
       <div role="status" className="flex items-center gap-2 text-[13px] text-muted-foreground">
         <Loader2 className="size-4 animate-spin" aria-hidden />
-        {isPending ? "Loading workspace…" : "Redirecting to log in…"}
+        Redirecting to log in…
       </div>
     </FullPageStatus>
   );

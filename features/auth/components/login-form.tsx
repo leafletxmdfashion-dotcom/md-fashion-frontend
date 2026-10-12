@@ -48,7 +48,7 @@ export function LoginForm() {
 
   return (
     <>
-      <AuthHeading title="Welcome back" description="Log in to your MD Fashion account." />
+      <AuthHeading title="Welcome back" description="Log in to your MD Fashion Center account." />
       <form onSubmit={onSubmit} noValidate className="grid gap-4">
         {errors.root?.server ? (
           <FormAlert>{errors.root.server.message}</FormAlert>

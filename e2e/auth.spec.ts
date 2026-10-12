@@ -112,7 +112,7 @@ test.describe("authentication", () => {
     const invitee = await browser.newContext();
     const invitePage = await invitee.newPage();
     await invitePage.goto(inviteUrl);
-    await expect(invitePage.getByRole("heading", { name: "Join MD Fashion" })).toBeVisible();
+    await expect(invitePage.getByRole("heading", { name: "Join MD Fashion Center" })).toBeVisible();
     await invitePage.getByLabel("Password", { exact: true }).fill("my brand new passphrase");
     await invitePage.getByLabel("Confirm password").fill("my brand new passphrase");
     await invitePage.getByRole("button", { name: "Activate account" }).click();

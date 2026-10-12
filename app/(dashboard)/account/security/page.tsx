@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { PageBody, PageHeader, Section } from "@/components/page-header";
+import { Page, Section } from "@/components/page-header";
 import { ChangePasswordForm } from "@/features/auth/components/change-password-form";
 import { SessionsList } from "@/features/auth/components/sessions-list";
 
@@ -13,18 +13,19 @@ export const metadata: Metadata = { title: "Security" };
 export default function SecurityPage() {
   return (
     <>
-      <PageHeader title="Security" />
-      <PageBody>
-        <Section
-          title="Password"
-          description="Changing your password signs out every other device and refreshes this session."
-        >
-          <ChangePasswordForm />
-        </Section>
-        <Section title="Active sessions" description="Devices currently signed in to your account.">
-          <SessionsList />
-        </Section>
-      </PageBody>
+      <Page title="Security" description="Your password and the devices signed in to your account.">
+        <div className="rounded-lg border bg-card p-5 sm:p-7">
+          <Section
+            title="Password"
+            description="Changing your password signs out every other device and refreshes this session."
+          >
+            <ChangePasswordForm />
+          </Section>
+          <Section title="Active sessions" description="Devices currently signed in to your account.">
+            <SessionsList />
+          </Section>
+        </div>
+      </Page>
     </>
   );
 }

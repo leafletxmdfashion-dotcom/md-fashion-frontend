@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/states";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api-client";
 
@@ -28,12 +29,20 @@ export function SessionsList() {
     <div className="grid gap-4">
       <div className="overflow-hidden rounded-lg border">
         {sessions.isPending ? (
-          <div className="grid gap-2 p-3">
-            <Skeleton className="h-9" />
-            <Skeleton className="h-9" />
-          </div>
+          <ul className="divide-y" aria-hidden>
+            {Array.from({ length: 2 }, (_, index) => (
+              <li key={index} className="flex items-center gap-3 px-3 py-2.5">
+                <Skeleton className="size-4 shrink-0" />
+                <div className="grid flex-1 gap-1.5">
+                  <Skeleton className="h-3.5 w-40" />
+                  <Skeleton className="h-3 w-56 max-w-full opacity-70" />
+                </div>
+                <Skeleton className="h-6 w-14" />
+              </li>
+            ))}
+          </ul>
         ) : sessions.isError ? (
-          <p className="p-4 text-[13px] text-muted-foreground">Could not load sessions.</p>
+          <ErrorState title="Could not load sessions" error={sessions.error} onRetry={() => void sessions.refetch()} />
         ) : (
           <ul className="divide-y">
             {sessions.data.map((session) => (

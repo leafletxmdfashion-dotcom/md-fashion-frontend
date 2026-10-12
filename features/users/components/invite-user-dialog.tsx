@@ -85,7 +85,7 @@ export function InviteUserDialog({ roles }: { roles: Role[] }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger render={<Button size="sm" />}>
+      <DialogTrigger render={<Button />}>
         <Plus aria-hidden />
         Invite member
       </DialogTrigger>

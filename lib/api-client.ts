@@ -115,6 +115,8 @@ api.interceptors.response.use(
     return response;
   },
   async (error: unknown) => {
+    // A request cancelled on purpose (superseded search, unmounted view) is not a failure.
+    if (axios.isCancel(error)) throw error;
     if (axios.isAxiosError(error)) captureRotatedToken(error.response?.headers);
     const apiError = toApiError(error);
     const config = axios.isAxiosError(error)

@@ -86,7 +86,7 @@ export function AcceptInvitationForm() {
   return (
     <>
       <AuthHeading
-        title="Join MD Fashion"
+        title="Join MD Fashion Center"
         description={
           <>
             You were invited as{" "}
