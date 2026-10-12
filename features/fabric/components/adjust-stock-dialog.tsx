@@ -17,7 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Textarea } from "@/components/ui/textarea";
 import { applyServerError } from "@/lib/form-errors";
@@ -31,8 +30,6 @@ const schema = z.object({
   direction: z.enum(["IN", "OUT"]),
   quantity: z.number({ invalid_type_error: "Enter a quantity." }).positive("Quantity must be more than zero."),
   reason: z.string().trim().min(3, "Give a reason (at least 3 characters).").max(500),
-  color: z.string().trim().max(50),
-  rollRef: z.string().trim().max(50),
 });
 
 type Values = z.infer<typeof schema>;
@@ -54,16 +51,16 @@ export function AdjustStockDialog({
   const adjust = useAdjustStock();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { direction: "OUT", reason: "", color: "", rollRef: "" },
+    defaultValues: { direction: "OUT", reason: "" },
   });
   const { errors, isSubmitting } = form.formState;
   const [direction, quantity] = useWatch({ control: form.control, name: ["direction", "quantity"] });
   const delta = Number.isFinite(quantity) && quantity > 0 ? (direction === "IN" ? quantity : -quantity) : 0;
   const after = fabric.balance + delta;
 
-  const onSubmit = form.handleSubmit(async ({ color, rollRef, ...values }) => {
+  const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await adjust.mutateAsync({ fabricId: fabric.id, ...values, color: color || null, rollRef: rollRef || null });
+      await adjust.mutateAsync({ fabricId: fabric.id, ...values });
       toast.success(`Stock adjusted. ${fabric.name} is now ${formatQty(after, fabric.unit)}.`);
       onOpenChange(false);
     } catch (error) {
@@ -148,15 +145,6 @@ export function AdjustStockDialog({
               {...form.register("reason")}
             />
           </Field>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="adjust-color" label="Colour (optional)" error={errors.color?.message}>
-              <Input {...fieldProps("adjust-color", errors.color?.message)} {...form.register("color")} />
-            </Field>
-            <Field id="adjust-roll" label="Than / roll (optional)" error={errors.rollRef?.message}>
-              <Input {...fieldProps("adjust-roll", errors.rollRef?.message)} {...form.register("rollRef")} />
-            </Field>
-          </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

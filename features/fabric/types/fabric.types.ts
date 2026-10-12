@@ -121,6 +121,4 @@ export interface AdjustmentInput {
   direction: "IN" | "OUT";
   quantity: number;
   reason: string;
-  color: string | null;
-  rollRef: string | null;
 }
