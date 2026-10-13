@@ -21,6 +21,8 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
+  // Stop `next dev` from writing AGENTS.md for AI coding agents.
+  agentRules: false,
   turbopack: {
     rules: {
       "*.css": {
