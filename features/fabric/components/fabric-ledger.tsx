@@ -262,12 +262,9 @@ function FabricHeader({
     <div className="grid gap-4 rounded-lg border bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            {fabric.name}
-            {fabric.isActive ? null : <StatusChip>Inactive</StatusChip>}
-          </h2>
+          <h2 className="flex items-center gap-2 text-base font-semibold">{fabric.name}</h2>
           <p className="text-[13px] text-muted-foreground">
-            {[fabric.code, fabric.category, UNIT_NAME[fabric.unit]].filter(Boolean).join(" · ")}
+            {fabric.code} · {UNIT_NAME[fabric.unit]}
           </p>
         </div>
         <div className="flex gap-2">
@@ -351,9 +348,7 @@ export function FabricLedger() {
           <FabricHeader
             fabric={fabric}
             onPurchase={
-              hasPermission(user, "fabric.inward") && fabric.isActive
-                ? () => setDialog({ kind: "purchase", key: Date.now() })
-                : undefined
+              hasPermission(user, "fabric.inward") ? () => setDialog({ kind: "purchase", key: Date.now() }) : undefined
             }
             onAdjust={
               hasPermission(user, "fabric.adjust") ? () => setDialog({ kind: "adjust", key: Date.now() }) : undefined

@@ -99,7 +99,7 @@ function FabricSnapshot({ canPost }: { canPost: boolean }) {
               label="Fabric stock value"
               icon={Wallet}
               value={summary ? formatMoney(summary.stockValue) : "—"}
-              context={summary ? `${summary.active} active fabric${summary.active === 1 ? "" : "s"}` : undefined}
+              context={summary ? `${summary.fabrics} fabric${summary.fabrics === 1 ? "" : "s"}` : undefined}
               href="/fabric"
             />
             <StatCard
@@ -134,18 +134,14 @@ function FabricSnapshot({ canPost }: { canPost: boolean }) {
             <ListSkeleton />
           ) : fabrics.isError ? (
             <ErrorState title="Could not load fabrics" error={fabrics.error} onRetry={() => void fabrics.refetch()} />
-          ) : summary && summary.active === 0 ? (
+          ) : summary && summary.fabrics === 0 ? (
             <EmptyState
               icon={Layers}
               title="No fabrics yet"
               description="Add fabrics in Fabric Master to track stock."
             />
           ) : reorder.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              title="Stock is healthy"
-              description="No active fabric is at its reorder level."
-            />
+            <EmptyState icon={CheckCircle2} title="Stock is healthy" description="No fabric is at its reorder level." />
           ) : (
             <ul className="divide-y">
               {reorder.map((fabric) => {

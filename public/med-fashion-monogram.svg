@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 1254 1254" role="img" aria-labelledby="med-title med-desc">
-  <title id="med-title">MED Fashion</title>
-  <desc id="med-desc">Standalone red lightning bolt splitting a cream MD monogram, transparent background.</desc>
-  <g id="monogram" aria-label="MD lightning monogram">
-      <path id="letter-m" fill="#F4EFE7" d="M 110 479 H 313 L 419 614 L 583 479 H 701 L 509 718 H 600 L 514 878 H 385 L 505 662 L 353 779 L 273 660 L 170 878 H 24 L 185 563 Z"/>
-      <path id="letter-d" fill="#F4EFE7" d="M 815 479 H 1024 C 1135 479 1203 551 1203 674 C 1203 796 1118 878 999 878 H 604 L 833 616 H 930 L 805 767 H 997 C 1064 767 1103 734 1103 674 C 1103 613 1073 593 996 593 H 741 Z"/>
-      <path id="lightning-bolt" fill="#EC2B2D" d="M 990 220 L 704 621 H 817 L 443 1012 L 628 713 H 527 Z"/>
-    </g>
-</svg>

@@ -145,7 +145,7 @@ export function CommandMenu({ groups }: { groups: NavGroup[] }) {
         id: `fabric:${fabric.id}`,
         group: "Fabrics",
         label: fabric.name,
-        hint: `${fabric.code} · ${formatQty(fabric.balance, fabric.unit)}${fabric.isActive ? "" : " · inactive"}`,
+        hint: `${fabric.code} · ${formatQty(fabric.balance, fabric.unit)}`,
         icon: Layers,
         keywords: fabric.code,
         run: navigate(`/fabric/ledger?fabric=${fabric.id}`),

@@ -19,14 +19,6 @@ export function useFabricOptions({ enabled = true }: { enabled?: boolean } = {})
   return useQuery({ queryKey: fabricKeys.options(), queryFn: ({ signal }) => fabricApi.options(signal), enabled });
 }
 
-export function useFabricCategories() {
-  return useQuery({
-    queryKey: fabricKeys.categories(),
-    queryFn: ({ signal }) => fabricApi.categories(signal),
-    staleTime: 5 * 60_000,
-  });
-}
-
 export function useFabric(id: string | undefined) {
   return useQuery({
     queryKey: fabricKeys.detail(id ?? ""),
@@ -71,7 +63,5 @@ function useFabricMutation<TInput, TResult>(mutationFn: (input: TInput) => Promi
 export const useCreateFabric = () => useFabricMutation(fabricApi.create);
 export const useUpdateFabric = () => useFabricMutation(fabricApi.update);
 export const useAdjustStock = () => useFabricMutation(fabricApi.adjust);
-export const useBulkFabricStatus = () => useFabricMutation(fabricApi.bulkStatus);
-export const useImportFabrics = () => useFabricMutation(fabricApi.importFabrics);
 export const useCreateInward = () => useFabricMutation(fabricApi.createInward);
 export const useReverseInward = () => useFabricMutation(fabricApi.reverseInward);

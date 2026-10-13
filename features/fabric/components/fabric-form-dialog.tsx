@@ -8,7 +8,6 @@ import { z } from "zod";
 
 import { Field, fieldProps } from "@/components/form/field";
 import { FormAlert } from "@/components/form/form-alert";
-import { SuggestInput } from "@/components/form/suggest-input";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,11 +20,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { applyServerError } from "@/lib/form-errors";
 
-import { useCreateFabric, useFabricCategories, useUpdateFabric } from "../hooks/use-fabric";
+import { useCreateFabric, useUpdateFabric } from "../hooks/use-fabric";
 import { UNIT_LABEL, UNIT_NAME } from "../lib/format";
 import type { Fabric, FabricUnit } from "../types/fabric.types";
 
@@ -37,10 +35,8 @@ const schema = z.object({
     .toUpperCase()
     .regex(/^[A-Z0-9][A-Z0-9-]{0,23}$/, "Use up to 24 letters, numbers or dashes."),
   unit: z.enum(["KG", "METER"], { errorMap: () => ({ message: "Choose a unit." }) }),
-  category: z.string().trim().max(50, "Keep the category under 50 characters."),
   lowStockThreshold: z.number({ invalid_type_error: "Enter a number." }).min(0, "Cannot be negative.").nullable(),
   description: z.string().trim().max(500, "Keep the description under 500 characters."),
-  isActive: z.boolean(),
 });
 
 type Values = z.infer<typeof schema>;
@@ -60,7 +56,6 @@ export function FabricFormDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const create = useCreateFabric();
-  const categories = useFabricCategories();
   const update = useUpdateFabric();
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -68,21 +63,19 @@ export function FabricFormDialog({
       name: fabric?.name ?? "",
       code: fabric?.code ?? "",
       unit: fabric?.unit,
-      category: fabric?.category ?? "",
       lowStockThreshold: fabric?.lowStockThreshold ?? null,
       description: fabric?.description ?? "",
-      isActive: fabric?.isActive ?? true,
     },
   });
   const { errors, isSubmitting } = form.formState;
   const unit = useWatch({ control: form.control, name: "unit" });
   const unitLocked = Boolean(fabric && fabric.movementCount > 0);
 
-  const onSubmit = form.handleSubmit(async ({ isActive, description, ...values }) => {
-    const input = { ...values, category: values.category || null, description: description || null };
+  const onSubmit = form.handleSubmit(async ({ description, ...values }) => {
+    const input = { ...values, description: description || null };
     try {
       if (fabric) {
-        await update.mutateAsync({ id: fabric.id, isActive, ...input });
+        await update.mutateAsync({ id: fabric.id, ...input });
         toast.success(`${values.name} updated.`);
       } else {
         await create.mutateAsync(input);
@@ -129,7 +122,7 @@ export function FabricFormDialog({
             </Field>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid items-start gap-4 sm:grid-cols-2">
             <Field
               id="fabric-unit"
               label="Unit"
@@ -165,48 +158,30 @@ export function FabricFormDialog({
                 )}
               />
             </Field>
-            <Field id="fabric-category" label="Category (optional)" error={errors.category?.message}>
-              <Controller
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <SuggestInput
-                    {...fieldProps("fabric-category", errors.category?.message)}
-                    placeholder="e.g. Knit, Woven, Lining"
-                    suggestions={categories.data ?? []}
-                    value={field.value}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    name={field.name}
-                  />
-                )}
-              />
+            <Field
+              id="fabric-threshold"
+              label="Reorder level"
+              error={errors.lowStockThreshold?.message}
+              description="Flag this fabric as low when stock falls to this level. Leave blank to skip."
+            >
+              <InputGroup>
+                <InputGroupInput
+                  {...fieldProps("fabric-threshold", errors.lowStockThreshold?.message, "hint")}
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="any"
+                  placeholder="50"
+                  {...form.register("lowStockThreshold", { setValueAs: optionalNumber })}
+                />
+                {unit ? (
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupText>{UNIT_LABEL[unit]}</InputGroupText>
+                  </InputGroupAddon>
+                ) : null}
+              </InputGroup>
             </Field>
           </div>
-
-          <Field
-            id="fabric-threshold"
-            label="Reorder level"
-            error={errors.lowStockThreshold?.message}
-            description="Flag this fabric as low when stock falls to this level. Leave blank to skip."
-          >
-            <InputGroup>
-              <InputGroupInput
-                {...fieldProps("fabric-threshold", errors.lowStockThreshold?.message, "hint")}
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step="any"
-                placeholder="50"
-                {...form.register("lowStockThreshold", { setValueAs: optionalNumber })}
-              />
-              {unit ? (
-                <InputGroupAddon align="inline-end">
-                  <InputGroupText>{UNIT_LABEL[unit]}</InputGroupText>
-                </InputGroupAddon>
-              ) : null}
-            </InputGroup>
-          </Field>
 
           <Field id="fabric-description" label="Description" error={errors.description?.message}>
             <Textarea
@@ -216,24 +191,6 @@ export function FabricFormDialog({
               {...form.register("description")}
             />
           </Field>
-
-          {fabric ? (
-            <Controller
-              control={form.control}
-              name="isActive"
-              render={({ field }) => (
-                <label className="flex items-start justify-between gap-4 rounded-lg border p-3">
-                  <span className="grid gap-0.5">
-                    <span className="text-[13px] font-medium">Active</span>
-                    <span className="text-xs text-muted-foreground">
-                      Inactive fabrics are hidden from new purchases. Their history stays.
-                    </span>
-                  </span>
-                  <Switch checked={field.value} onCheckedChange={field.onChange} />
-                </label>
-              )}
-            />
-          ) : null}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

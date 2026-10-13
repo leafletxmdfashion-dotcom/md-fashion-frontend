@@ -37,37 +37,3 @@ export async function downloadServerCsv(path: string, params: Record<string, str
   const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "export.csv";
   saveBlob(response.data, filename);
 }
-
-/** Minimal RFC 4180 parser: quoted fields, escaped quotes, CRLF or LF line ends. */
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let quoted = false;
-  const input = text.replace(/^﻿/, "");
-  for (let index = 0; index < input.length; index += 1) {
-    const char = input[index]!;
-    if (quoted) {
-      if (char === '"' && input[index + 1] === '"') {
-        field += '"';
-        index += 1;
-      } else if (char === '"') quoted = false;
-      else field += char;
-    } else if (char === '"') quoted = true;
-    else if (char === ",") {
-      row.push(field);
-      field = "";
-    } else if (char === "\n" || char === "\r") {
-      if (char === "\r" && input[index + 1] === "\n") index += 1;
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-    } else field += char;
-  }
-  if (field || row.length) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows.filter((cells) => cells.some((value) => value.trim() !== ""));
-}

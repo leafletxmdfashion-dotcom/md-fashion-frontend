@@ -15,7 +15,6 @@ test("fabric master, purchase, adjustment, ledger and reversal work end to end",
   await fabricForm.getByLabel("Code").fill("fb-ctj");
   await fabricForm.getByLabel("Unit").click();
   await page.getByRole("option", { name: "Kilogram" }).click();
-  await fabricForm.getByLabel("Category (optional)").fill("Knit");
   await fabricForm.getByLabel("Reorder level").fill("50");
   await fabricForm.getByRole("button", { name: "Add fabric" }).click();
   await expect(fabricForm).toBeHidden();
@@ -23,7 +22,7 @@ test("fabric master, purchase, adjustment, ledger and reversal work end to end",
   await expect(row).toContainText("FB-CTJ");
   await expect(row).toContainText("0 kg");
 
-  // Purchase two rolls on one invoice.
+  // Purchase two rolls on one invoice, one entry each.
   await row.getByRole("button", { name: "Row actions" }).click();
   await page.getByRole("menuitem", { name: "Record purchase" }).click();
   const purchase = page.getByRole("dialog");
@@ -34,11 +33,17 @@ test("fabric master, purchase, adjustment, ledger and reversal work end to end",
   await purchase.getByLabel("Colour").fill("Red");
   await purchase.getByLabel("Than / roll no.").fill("R-001");
   await expect(purchase.getByText("Rs 54,000.00")).toBeVisible();
-  await purchase.getByRole("button", { name: "Post & add another" }).click();
+  await purchase.getByRole("button", { name: "Post purchase" }).click();
   await expect(page.getByText("FI-0001 posted")).toBeVisible();
-  await expect(purchase.getByLabel("Quantity")).toHaveValue("");
-  await expect(purchase.getByLabel("Supplier")).toHaveValue("Sunrise Knits");
+  await expect(purchase).toBeHidden();
+  await expect(row).toContainText("120 kg");
+
+  await row.getByRole("button", { name: "Row actions" }).click();
+  await page.getByRole("menuitem", { name: "Record purchase" }).click();
   await purchase.getByLabel("Quantity").fill("40");
+  await purchase.getByLabel("Rate").fill("450");
+  await purchase.getByLabel("Supplier").fill("Sunrise Knits");
+  await purchase.getByLabel("Invoice / bill no.").fill("INV-2401");
   await purchase.getByLabel("Than / roll no.").fill("R-002");
   await purchase.getByRole("button", { name: "Post purchase" }).click();
   await expect(purchase).toBeHidden();
@@ -112,8 +117,7 @@ test("purchase register pages, resizes, searches and keeps filters in the URL", 
           body: JSON.stringify(body),
         })
       ).json()) as { data: { fabric: { id: string } } };
-    const fabric = (await post("/api/v1/fabrics", { name: "Paging Rib", code: "PG-RIB", unit: "KG", category: "TRIM" }))
-      .data.fabric;
+    const fabric = (await post("/api/v1/fabrics", { name: "Paging Rib", code: "PG-RIB", unit: "KG" })).data.fabric;
     const today = new Date().toISOString().slice(0, 10);
     for (let index = 1; index <= 30; index += 1) {
       await post("/api/v1/fabrics/inwards", {
@@ -173,22 +177,22 @@ test("the command palette finds pages and fabrics and runs actions", async ({ pa
   await expect(page.getByRole("dialog", { name: "Record purchase" })).toBeVisible();
 });
 
-test("column filters, sorting, bulk status and export work on Fabric Master", async ({ page }) => {
+test("column filters, sorting and export work on Fabric Master; no deactivate", async ({ page }) => {
   await page.goto("/login");
   await login(page, "owner@garment.test");
   await expect(page).toHaveURL(/\/dashboard$/);
 
   await page.evaluate(async () => {
     const csrf = ((await (await fetch("/api/v1/auth/csrf")).json()) as { data: { csrfToken: string } }).data.csrfToken;
-    for (const [code, name, category] of [
-      ["BK-1", "Bulk Twill", "WOVEN"],
-      ["BK-2", "Bulk Poplin", "WOVEN"],
-      ["BK-3", "Bulk Rib", "TRIM"],
+    for (const [code, name] of [
+      ["BK-1", "Bulk Twill"],
+      ["BK-2", "Bulk Poplin"],
+      ["BK-3", "Bulk Rib"],
     ]) {
       await fetch("/api/v1/fabrics", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
-        body: JSON.stringify({ code, name, unit: "METER", category }),
+        body: JSON.stringify({ code, name, unit: "METER" }),
       });
     }
   });
@@ -197,13 +201,19 @@ test("column filters, sorting, bulk status and export work on Fabric Master", as
   const rows = page.getByRole("row").filter({ hasText: "Bulk" });
   await expect(rows).toHaveCount(3);
 
-  // Header filter: Category contains "woven".
-  await page.getByRole("button", { name: /^Category: sort and filter/ }).click();
-  await page.getByRole("textbox", { name: "Category contains" }).fill("woven");
+  // The add form has no category field.
+  await page.getByRole("button", { name: "New fabric" }).click();
+  await expect(page.getByRole("dialog").getByLabel(/Category/)).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // Header filter: Fabric contains "poplin".
+  await page.getByRole("button", { name: /^Fabric: sort and filter/ }).click();
+  await page.getByRole("textbox", { name: "Fabric contains" }).fill("poplin");
   await page.getByRole("button", { name: "Apply" }).click();
   await expect(page.getByRole("button", { name: "Apply" })).toBeHidden();
-  await expect(page).toHaveURL(/category=woven/);
-  await expect(rows).toHaveCount(2);
+  await expect(page).toHaveURL(/fabric=poplin/);
+  await expect(rows).toHaveCount(1);
+  await page.goto("/fabric?q=bulk");
 
   // Header sort: Fabric Z to A.
   await page.getByRole("button", { name: /^Fabric: sort and filter/ }).click();
@@ -211,20 +221,21 @@ test("column filters, sorting, bulk status and export work on Fabric Master", as
   await expect(page).toHaveURL(/sort=fabric&dir=desc/);
   await expect(rows.first()).toContainText("Bulk Twill");
 
-  // Select both, deactivate from the floating bar.
+  // Selection only exports; there are no bulk status actions.
   await page.getByRole("checkbox", { name: "Select all rows on this page" }).click();
   const bar = page.getByRole("toolbar", { name: "Selected rows" });
-  await expect(bar).toContainText("Selected: 2");
+  await expect(bar).toContainText("Selected: 3");
+  await expect(bar.getByRole("button", { name: "Deactivate" })).toHaveCount(0);
   const download = page.waitForEvent("download");
   await bar.getByRole("button", { name: "Export" }).click();
   expect((await download).suggestedFilename()).toMatch(/^fabrics-selected-\d{4}-\d{2}-\d{2}\.csv$/);
-  await bar.getByRole("button", { name: "Deactivate" }).click();
-  await expect(page.getByText("2 fabrics deactivated.")).toBeVisible();
-  await expect(bar).toBeHidden();
-  await expect(rows).toHaveCount(0);
+  await bar.getByRole("button", { name: "Discard" }).click();
 
-  await page.goto("/fabric?q=bulk&status=inactive");
-  await expect(rows).toHaveCount(2);
+  // Fabrics cannot be deactivated: the row menu has no such action.
+  await rows.filter({ hasText: "Bulk Rib" }).getByRole("button", { name: "Row actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Edit details" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /Deactivate|Reactivate/ })).toHaveCount(0);
+  await page.keyboard.press("Escape");
 
   // Server export of the filtered list.
   const serverExport = page.waitForEvent("download");

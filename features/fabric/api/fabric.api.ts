@@ -19,7 +19,6 @@ export const fabricKeys = {
   all: ["fabric"] as const,
   list: (filters: FabricFilters) => [...fabricKeys.all, "list", filters] as const,
   options: () => [...fabricKeys.all, "options"] as const,
-  categories: () => [...fabricKeys.all, "categories"] as const,
   detail: (id: string) => [...fabricKeys.all, "detail", id] as const,
   inwards: (filters: InwardFilters) => [...fabricKeys.all, "inwards", filters] as const,
   suppliers: () => [...fabricKeys.all, "suppliers"] as const,
@@ -42,10 +41,6 @@ export const fabricApi = {
     return (await unwrap(api.get<ApiSuccess<{ fabrics: FabricOption[] }>>("/fabrics/options", { signal }))).fabrics;
   },
 
-  async categories(signal?: AbortSignal): Promise<string[]> {
-    return (await unwrap(api.get<ApiSuccess<{ categories: string[] }>>("/fabrics/categories", { signal }))).categories;
-  },
-
   async get(id: string, signal?: AbortSignal): Promise<Fabric> {
     return (await unwrap(api.get<ApiSuccess<{ fabric: Fabric }>>(`/fabrics/${id}`, { signal }))).fabric;
   },
@@ -54,16 +49,8 @@ export const fabricApi = {
     return (await unwrap(api.post<ApiSuccess<{ fabric: Fabric }>>("/fabrics", input))).fabric;
   },
 
-  async update({ id, ...input }: FabricInput & { id: string; isActive: boolean }): Promise<Fabric> {
+  async update({ id, ...input }: FabricInput & { id: string }): Promise<Fabric> {
     return (await unwrap(api.put<ApiSuccess<{ fabric: Fabric }>>(`/fabrics/${id}`, input))).fabric;
-  },
-
-  async bulkStatus(input: { ids: string[]; isActive: boolean }): Promise<number> {
-    return (await unwrap(api.post<ApiSuccess<{ updated: number }>>("/fabrics/bulk-status", input))).updated;
-  },
-
-  async importFabrics(rows: Record<string, unknown>[]): Promise<number> {
-    return (await unwrap(api.post<ApiSuccess<{ created: number }>>("/fabrics/import", { rows }))).created;
   },
 
   async adjust({ fabricId, ...input }: AdjustmentInput & { fabricId: string }): Promise<void> {

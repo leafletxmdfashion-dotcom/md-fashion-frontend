@@ -15,8 +15,9 @@ function backendDotEnv(): Record<string, string> {
 }
 
 const dotEnv = backendDotEnv();
+// Derived from the local test database, never from DATABASE_URL (which may be a cloud database).
 const databaseUrl =
-  process.env.E2E_DATABASE_URL ?? (dotEnv.DATABASE_URL ?? "").replace(/\/[^/?]+(\?|$)/, "/garment_e2e$1");
+  process.env.E2E_DATABASE_URL ?? (dotEnv.TEST_DATABASE_URL ?? "").replace(/\/[^/?]+(\?|$)/, "/garment_e2e$1");
 
 const appPort = 3100;
 const apiPort = 5100;
@@ -35,6 +36,8 @@ export const E2E = {
       LOG_LEVEL: "warn",
       CLIENT_URL: `http://localhost:${appPort}`,
       DATABASE_URL: databaseUrl,
+      // Prisma CLI prefers DIRECT_URL; pin it so .env can never redirect the e2e reset.
+      DIRECT_URL: databaseUrl,
       CSRF_SECRET: dotEnv.CSRF_SECRET ?? "e2e-csrf-secret-e2e-csrf-secret-0123456789",
       TRUST_PROXY: "loopback",
       MAIL_TRANSPORT: "outbox",

@@ -70,14 +70,13 @@ export function InwardFormDialog({
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: blank(defaultFabricId) });
   const { errors, isSubmitting } = form.formState;
 
-  const active = (fabrics.data ?? []).filter((fabric) => fabric.isActive);
+  const active = fabrics.data ?? [];
   const [fabricId, quantity, rate] = useWatch({ control: form.control, name: ["fabricId", "quantity", "rate"] });
   const fabric = active.find((item) => item.id === fabricId);
   const unit = fabric ? UNIT_LABEL[fabric.unit] : null;
   const amount = (Number.isFinite(quantity) ? quantity : 0) * (Number.isFinite(rate) ? rate : 0);
 
-  const onSubmit = form.handleSubmit(async (values, event) => {
-    const addAnother = (event?.nativeEvent as SubmitEvent | undefined)?.submitter?.getAttribute("value") === "another";
+  const onSubmit = form.handleSubmit(async (values) => {
     const input = {
       ...values,
       supplier: values.supplier || null,
@@ -91,13 +90,7 @@ export function InwardFormDialog({
       toast.success(
         `${inwardNumber(inward.number)} posted: ${formatQty(inward.quantity, inward.fabric.unit)} of ${inward.fabric.name}.`,
       );
-      if (addAnother) {
-        // Same invoice, next roll: keep the shared details, clear the roll-specific ones.
-        form.reset({ ...values, quantity: Number.NaN, color: "", rollRef: "", notes: "" });
-        form.setFocus("quantity");
-      } else {
-        onOpenChange(false);
-      }
+      onOpenChange(false);
     } catch (error) {
       applyServerError(error, form);
     }
@@ -237,20 +230,14 @@ export function InwardFormDialog({
             <Textarea {...fieldProps("inward-notes", errors.notes?.message)} rows={2} {...form.register("notes")} />
           </Field>
 
-          <DialogFooter className="sm:justify-between">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            {/* Primary first in the DOM so Enter posts once; reversed visually on wide screens. */}
-            <div className="flex flex-col gap-2 sm:flex-row-reverse">
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="animate-spin" aria-hidden /> : null}
-                Post purchase
-              </Button>
-              <Button type="submit" name="intent" value="another" variant="outline" disabled={isSubmitting}>
-                Post &amp; add another
-              </Button>
-            </div>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="animate-spin" aria-hidden /> : null}
+              Post purchase
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

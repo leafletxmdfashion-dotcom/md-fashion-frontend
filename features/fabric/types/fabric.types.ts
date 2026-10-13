@@ -6,10 +6,8 @@ export interface Fabric {
   code: string;
   name: string;
   unit: FabricUnit;
-  category: string | null;
   lowStockThreshold: number | null;
   description: string | null;
-  isActive: boolean;
   balance: number;
   avgRate: number | null;
   stockValue: number;
@@ -23,7 +21,6 @@ export interface FabricOption {
   code: string;
   name: string;
   unit: FabricUnit;
-  isActive: boolean;
   balance: number;
 }
 
@@ -33,14 +30,13 @@ export type FabricFilters = Record<string, string | number | undefined>;
 export interface FabricPage {
   fabrics: Fabric[];
   total: number;
-  summary: { stockValue: number; active: number; inStock: number; reorder: number; inactive: number };
+  summary: { stockValue: number; fabrics: number; inStock: number; reorder: number };
 }
 
 export interface FabricInput {
   code: string;
   name: string;
   unit: FabricUnit;
-  category: string | null;
   lowStockThreshold: number | null;
   description: string | null;
 }
