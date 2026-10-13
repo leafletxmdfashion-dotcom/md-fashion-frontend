@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { authApi } from "../api/auth.api";
 import { authKeys } from "../api/auth.keys";
+import { signOut } from "../lib/sign-out";
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
@@ -23,7 +24,7 @@ export function useRevokeSession() {
     mutationFn: authApi.revokeSession,
     onSuccess: ({ current }) => {
       if (current) {
-        queryClient.setQueryData(authKeys.me(), null);
+        void signOut("signed-out");
         return;
       }
       void queryClient.invalidateQueries({ queryKey: authKeys.sessions() });

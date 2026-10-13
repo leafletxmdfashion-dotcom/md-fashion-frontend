@@ -8,11 +8,13 @@ import { renderWithClient } from "@/test/render";
 
 import { authApi } from "../api/auth.api";
 import { useLogout } from "../hooks/use-logout";
+import { signOut } from "../lib/sign-out";
 import { ForgotPasswordForm } from "./forgot-password-form";
 import { ResetPasswordForm } from "./reset-password-form";
 
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
+vi.mock("../lib/sign-out", () => ({ signOut: vi.fn() }));
 vi.mock("../api/auth.api", () => ({
   authApi: { forgotPassword: vi.fn(), resetPassword: vi.fn(), logout: vi.fn() },
 }));
@@ -98,19 +100,16 @@ describe("ResetPasswordForm", () => {
 });
 
 describe("useLogout", () => {
-  it("clears the cached user and redirects to login, even if the request fails", async () => {
+  it("signs out even if the logout request fails", async () => {
     vi.mocked(authApi.logout).mockRejectedValue(new ApiError(0, "NETWORK_ERROR", "offline"));
     const client = new QueryClient();
-    client.setQueryData(["auth", "me"], { id: "u1" });
-    client.setQueryData(["users", "list"], [{ id: "u2" }]);
 
     const { result } = renderHook(() => useLogout(), {
       wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
     });
     result.current.mutate();
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
-    expect(client.getQueryData(["auth", "me"])).toBeNull();
-    expect(client.getQueryData(["users", "list"])).toBeUndefined();
+    // signOut clears the cookie, tells other tabs and reloads into /login (sign-out.test.ts).
+    await waitFor(() => expect(signOut).toHaveBeenCalledWith("signed-out"));
   });
 });

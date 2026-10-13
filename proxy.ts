@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // so redirect before any protected HTML is sent. A present cookie is NOT trusted;
 // the client AuthGuard confirms it with /auth/me and the API authorizes every call.
 const SESSION_COOKIES = ["__Host-gm_session", "gm_session"];
-const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password", "/accept-invitation"];
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password", "/accept-invitation", "/session/end"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

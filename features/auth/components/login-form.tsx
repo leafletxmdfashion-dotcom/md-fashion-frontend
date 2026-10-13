@@ -20,9 +20,19 @@ import { useLogin } from "../hooks/use-login";
 import { loginSchema, type LoginValues } from "../schemas/auth.schema";
 import { AuthHeading } from "./auth-heading";
 
+// Shown after a sign-out the user did not ask for, or to confirm one they did.
+const SIGN_OUT_MESSAGES: Record<string, string> = {
+  "signed-out": "You have been logged out.",
+  elsewhere: "You were logged out in another tab.",
+  expired: "Your session has ended. Please log in again.",
+  idle: "You were logged out after a period of inactivity.",
+};
+
 export function LoginForm() {
   const router = useRouter();
-  const destination = getSafeRedirect(useSearchParams().get("next"));
+  const searchParams = useSearchParams();
+  const destination = getSafeRedirect(searchParams.get("next"));
+  const signedOut = SIGN_OUT_MESSAGES[searchParams.get("reason") ?? ""];
   const { data: currentUser } = useCurrentUser();
   const login = useLogin();
   const form = useForm<LoginValues>({
@@ -52,6 +62,8 @@ export function LoginForm() {
       <form onSubmit={onSubmit} noValidate className="grid gap-4">
         {errors.root?.server ? (
           <FormAlert>{errors.root.server.message}</FormAlert>
+        ) : signedOut ? (
+          <FormAlert variant="info">{signedOut}</FormAlert>
         ) : null}
         <Field id="email" label="Email" error={errors.email?.message}>
           <Input

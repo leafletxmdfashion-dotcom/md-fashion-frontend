@@ -28,6 +28,7 @@ const user: CurrentUser = {
   status: "ACTIVE",
   role: { key: "STAFF", name: "Staff" },
   permissions: ["dashboard.view"],
+  session: { expiresAt: new Date(Date.now() + 3_600_000).toISOString(), idleTimeoutMinutes: 120 },
 };
 
 async function fillAndSubmit(email = "ada@garment.test", password = "correct horse battery staple") {
@@ -114,5 +115,21 @@ describe("LoginForm", () => {
     vi.mocked(authApi.getCurrentUser).mockResolvedValue(user);
     renderWithClient(<LoginForm />);
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+  });
+
+  it("explains why the user was signed out", async () => {
+    search = "reason=idle";
+    vi.mocked(authApi.getCurrentUser).mockResolvedValue(null);
+    renderWithClient(<LoginForm />);
+    expect(await screen.findByRole("status")).toHaveTextContent("logged out after a period of inactivity");
+  });
+
+  it("ignores an unknown reason", async () => {
+    search = "reason=<script>";
+    vi.mocked(authApi.getCurrentUser).mockResolvedValue(null);
+    renderWithClient(<LoginForm />);
+    await screen.findByLabelText("Email");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });

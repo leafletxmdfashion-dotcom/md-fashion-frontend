@@ -53,7 +53,8 @@ test.describe("authentication", () => {
 
     await page.getByRole("button", { name: /Sam Staff/ }).click();
     await page.getByRole("menuitem", { name: "Log out" }).click();
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?reason=signed-out$/);
+    await expect(page.getByText("You have been logged out.")).toBeVisible();
 
     expect((await page.request.get("/api/v1/auth/me")).status()).toBe(401);
     await page.goto("/dashboard");

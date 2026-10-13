@@ -95,6 +95,35 @@ function toApiError(error: unknown): ApiError {
   return new ApiError(0, "UNKNOWN_ERROR", "Something went wrong. Please try again.");
 }
 
+// When the API last answered for this session. The server extends the idle window on
+// every authenticated request, so this tells the client when the session lapses.
+// Shared across tabs (one cookie, one session) through localStorage: a timestamp only.
+const ACTIVITY_KEY = "md-session-activity";
+let lastActivity = Date.now();
+let lastShared = 0;
+
+function markServerActivity(): void {
+  lastActivity = Date.now();
+  if (lastActivity - lastShared < 15_000) return;
+  lastShared = lastActivity;
+  try {
+    localStorage.setItem(ACTIVITY_KEY, String(lastActivity));
+  } catch {
+    // Storage blocked (private mode): this tab's own clock still works.
+  }
+}
+
+/** Latest API activity in any tab, as epoch milliseconds. */
+export function lastServerActivity(): number {
+  let shared = 0;
+  try {
+    shared = Number(localStorage.getItem(ACTIVITY_KEY)) || 0;
+  } catch {
+    // Storage blocked: fall back to this tab.
+  }
+  return Math.max(lastActivity, shared);
+}
+
 let unauthenticatedHandler: (() => void) | null = null;
 
 /** Registered once by the app providers; invoked when the API reports the session is gone. */
@@ -112,6 +141,7 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => {
     captureRotatedToken(response.headers);
+    markServerActivity();
     return response;
   },
   async (error: unknown) => {
@@ -119,6 +149,7 @@ api.interceptors.response.use(
     if (axios.isCancel(error)) throw error;
     if (axios.isAxiosError(error)) captureRotatedToken(error.response?.headers);
     const apiError = toApiError(error);
+    if (apiError.status !== 0 && apiError.status !== 401) markServerActivity();
     const config = axios.isAxiosError(error)
       ? (error.config as (InternalAxiosRequestConfig & { _csrfRetried?: boolean }) | undefined)
       : undefined;

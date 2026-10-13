@@ -1,6 +1,7 @@
 "use client";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { ConnectionBanner } from "@/components/connection-banner";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AuthGuard } from "@/features/auth/components/auth-guard";
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
@@ -17,7 +18,10 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen={sidebarWasOpen()}>
       <AppSidebar user={user} />
-      <SidebarInset>{children}</SidebarInset>
+      <SidebarInset>
+        <ConnectionBanner />
+        {children}
+      </SidebarInset>
     </SidebarProvider>
   );
 }

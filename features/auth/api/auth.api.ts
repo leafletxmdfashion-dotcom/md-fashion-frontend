@@ -6,7 +6,9 @@ export const authApi = {
   /** Resolves to null when signed out: an expected state, not an error. */
   async getCurrentUser(): Promise<CurrentUser | null> {
     try {
-      return (await unwrap(api.get<{ success: true; data: { user: CurrentUser } }>("/auth/me"))).user;
+      // Short timeout: the whole app waits on this, and a failure signs the user out.
+      return (await unwrap(api.get<{ success: true; data: { user: CurrentUser } }>("/auth/me", { timeout: 6_000 })))
+        .user;
     } catch (error) {
       if (error instanceof ApiError && error.code === "AUTH_UNAUTHENTICATED") return null;
       throw error;

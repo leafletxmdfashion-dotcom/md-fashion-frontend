@@ -38,7 +38,7 @@ export function StatCard({
         {Icon ? <Icon className="size-4 shrink-0 opacity-70" aria-hidden /> : null}
       </span>
       <span
-        className={cn("text-lg leading-tight font-bold tracking-tight break-all tabular-nums sm:text-2xl", TONE[tone])}
+        className={cn("text-lg leading-tight font-bold tracking-tight wrap-break-word tabular-nums sm:text-2xl", TONE[tone])}
       >
         {value}
       </span>

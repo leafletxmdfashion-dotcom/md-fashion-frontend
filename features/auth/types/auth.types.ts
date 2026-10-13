@@ -38,6 +38,8 @@ export interface CurrentUser {
   status: UserStatus;
   role: { key: string; name: string };
   permissions: Permission[];
+  /** When the server stops accepting this session: at `expiresAt`, or after this many idle minutes. */
+  session: { expiresAt: string; idleTimeoutMinutes: number };
 }
 
 export interface SessionSummary {

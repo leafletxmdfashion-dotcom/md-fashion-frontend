@@ -1,28 +1,15 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 
 import { authApi } from "../api/auth.api";
-import { authKeys } from "../api/auth.keys";
-
-function useSignedOut() {
-  const queryClient = useQueryClient();
-  const router = useRouter();
-  return () => {
-    queryClient.setQueryData(authKeys.me(), null);
-    queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== authKeys.all[0] });
-    router.replace("/login");
-  };
-}
+import { signOut } from "../lib/sign-out";
 
 export function useLogout() {
-  const signedOut = useSignedOut();
-  // Even if the request fails (e.g. session already expired) the user ends up signed out locally.
-  return useMutation({ mutationFn: authApi.logout, onSettled: signedOut });
+  // Even if the request fails (API down, session already gone) the user ends up signed out.
+  return useMutation({ mutationFn: authApi.logout, onSettled: () => signOut("signed-out") });
 }
 
 export function useLogoutAll() {
-  const signedOut = useSignedOut();
-  return useMutation({ mutationFn: authApi.logoutAll, onSuccess: signedOut });
+  return useMutation({ mutationFn: authApi.logoutAll, onSuccess: () => signOut("signed-out") });
 }

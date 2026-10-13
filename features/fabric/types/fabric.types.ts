@@ -110,6 +110,9 @@ export type MovementFilters = Record<string, string | number | undefined>;
 export interface MovementPage {
   movements: Movement[];
   total: number;
+  /** Received and issued over every matching movement, per unit (kg and m never add up). */
+  byUnit: Partial<Record<FabricUnit, { in: number; out: number }>>;
+  /** Opening/closing for the chosen period; only when one fabric is selected. */
   summary: { opening: number; totalIn: number; totalOut: number; closing: number } | null;
 }
 

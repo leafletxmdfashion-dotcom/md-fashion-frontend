@@ -1,22 +1,20 @@
 "use client";
 
-import { ScrollText } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, History, Package, ScrollText, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 
 import { DataTable, useDataTableState, type DataColumn } from "@/components/data-table/data-table";
 import { EmptyState } from "@/components/states";
+import { StatCard, StatCardSkeleton } from "@/components/stat-card";
 import { StatusChip, type StatusTone } from "@/components/status-chip";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
-import { hasPermission } from "@/features/auth/lib/permissions";
 import { ApiError } from "@/lib/api-client";
 import { downloadServerCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 
-import { useFabric, useFabricOptions, useMovements } from "../hooks/use-fabric";
+import { useFabric, useFabricList, useFabricOptions, useMovements } from "../hooks/use-fabric";
 import {
   formatDate,
   formatMoney,
@@ -28,11 +26,9 @@ import {
   UNIT_LABEL,
   UNIT_NAME,
 } from "../lib/format";
-import type { Fabric, Movement, MovementType } from "../types/fabric.types";
-import { AdjustStockDialog } from "./adjust-stock-dialog";
+import type { Fabric, FabricUnit, Movement, MovementPage, MovementType } from "../types/fabric.types";
 import { FabricCombobox } from "./fabric-combobox";
 import { FabricPage } from "./fabric-page";
-import { InwardFormDialog } from "./inward-form-dialog";
 
 const TYPE_TONE: Record<MovementType, StatusTone> = {
   PURCHASE_IN: "success",
@@ -208,100 +204,129 @@ const COLUMNS: DataColumn<Movement>[] = [
   },
 ];
 
-function TilesSkeleton() {
-  return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-      {Array.from({ length: 4 }, (_, index) => (
-        <div key={index} className="grid gap-1.5">
-          <Skeleton className="h-3 w-20 opacity-70" />
-          <Skeleton className="h-5 w-24" />
-        </div>
-      ))}
-    </div>
-  );
+const STOCK_TONE = { ok: "default", low: "warning", out: "danger" } as const;
+
+/** "+120 kg · +40 m": one figure per unit present, since kilograms and metres never add up. */
+function perUnit(byUnit: MovementPage["byUnit"], pick: "in" | "out", sign: string): string {
+  const parts = (Object.keys(UNIT_LABEL) as FabricUnit[])
+    .filter((unit) => byUnit[unit]?.[pick])
+    .map((unit) => `${sign}${formatQty(byUnit[unit]![pick], unit)}`);
+  return parts.length ? parts.join(" · ") : "0";
 }
 
-function FabricHeaderSkeleton() {
-  return (
-    <div className="grid gap-4 rounded-lg border bg-card p-4 sm:p-5" aria-hidden>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid gap-2">
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-3.5 w-52 opacity-70" />
-        </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-8 w-24" />
-          <Skeleton className="h-8 w-32" />
-        </div>
-      </div>
-      <TilesSkeleton />
-    </div>
-  );
-}
-
-function Tile({ label, value, className }: { label: string; value: string; className?: string }) {
-  return (
-    <div className="grid gap-0.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={cn("text-base font-semibold tabular-nums", className)}>{value}</span>
-    </div>
-  );
-}
-
-function FabricHeader({
+/**
+ * The page's headline figures. One fabric: its stock movement over the period
+ * (opening → received → issued → closing). All fabrics: activity under the
+ * current filters plus today's stock value.
+ */
+function LedgerStats({
+  fabricId,
   fabric,
-  onPurchase,
-  onAdjust,
+  data,
+  period,
+  to,
+  refreshing,
+  failed,
 }: {
-  fabric: Fabric;
-  onPurchase?: () => void;
-  onAdjust?: () => void;
+  fabricId: string | undefined;
+  fabric: Fabric | undefined;
+  data: MovementPage | undefined;
+  period: string;
+  to: string | undefined;
+  /** Figures still belong to the previous filters while new ones load. */
+  refreshing: boolean;
+  /** The ledger failed to load: the table shows the error and its retry; no figures to show. */
+  failed: boolean;
 }) {
-  const state = stockState(fabric);
-  return (
-    <div className="grid gap-4 rounded-lg border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-base font-semibold">{fabric.name}</h2>
-          <p className="text-[13px] text-muted-foreground">
+  const grid = cn("grid grid-cols-2 gap-3 transition-opacity lg:grid-cols-4", refreshing && "opacity-60");
+  const stock = useFabricList({ page: 1, pageSize: 1 }).data?.summary;
+  if (failed && !data) return null;
+
+  if (fabricId) {
+    const summary = data?.summary;
+    if (!fabric || !summary) return <StatsSkeleton label={`Movement summary, ${period}`} heading />;
+    const state = stockState(fabric);
+    const reorder =
+      fabric.lowStockThreshold === null ? "" : ` · reorder at ${formatQty(fabric.lowStockThreshold, fabric.unit)}`;
+    return (
+      <section aria-label={`Movement summary, ${period}`} aria-busy={refreshing} className="grid gap-3">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <h2 className="text-base font-semibold">{fabric.name}</h2>
+          <span className="text-[13px] text-muted-foreground">
             {fabric.code} · {UNIT_NAME[fabric.unit]}
-          </p>
+          </span>
         </div>
-        <div className="flex gap-2">
-          {onAdjust ? (
-            <Button variant="outline" size="sm" onClick={onAdjust}>
-              Adjust stock
-            </Button>
-          ) : null}
-          {onPurchase ? (
-            <Button size="sm" onClick={onPurchase}>
-              Record purchase
-            </Button>
-          ) : null}
+        <div className={grid}>
+          <StatCard label="Opening" icon={History} value={formatQty(summary.opening, fabric.unit)} context={period} />
+          <StatCard
+            label="Received"
+            icon={ArrowDownToLine}
+            value={summary.totalIn ? `+${formatQty(summary.totalIn, fabric.unit)}` : formatQty(0, fabric.unit)}
+            context="Purchases, additions"
+          />
+          <StatCard
+            label="Issued / reduced"
+            icon={ArrowUpFromLine}
+            value={summary.totalOut ? `−${formatQty(summary.totalOut, fabric.unit)}` : formatQty(0, fabric.unit)}
+            context="Reversals, reductions"
+          />
+          <StatCard
+            label={to ? "Closing" : "In stock now"}
+            icon={Package}
+            value={formatQty(summary.closing, fabric.unit)}
+            tone={to ? "default" : STOCK_TONE[state]}
+            context={to ? `On ${formatDate(to)}` : `Worth ${formatMoney(fabric.stockValue)}${reorder}`}
+          />
         </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Tile
-          label="In stock now"
-          value={formatQty(fabric.balance, fabric.unit)}
-          className={cn(state === "low" && "text-warning", state === "out" && "text-destructive")}
-        />
-        <Tile
-          label="Reorder at"
-          value={fabric.lowStockThreshold === null ? "Not set" : formatQty(fabric.lowStockThreshold, fabric.unit)}
-        />
-        <Tile
-          label="Avg purchase rate"
-          value={fabric.avgRate === null ? "—" : `${formatMoney(fabric.avgRate)}/${UNIT_LABEL[fabric.unit]}`}
-        />
-        <Tile label="Stock value" value={formatMoney(fabric.stockValue)} />
+      </section>
+    );
+  }
+
+  if (!data || !stock) return <StatsSkeleton label="Ledger summary" />;
+  return (
+    <section aria-label="Ledger summary" aria-busy={refreshing} className={grid}>
+      <StatCard label="Movements" icon={ScrollText} value={formatNumber(data.total)} context={period} />
+      <StatCard
+        label="Received"
+        icon={ArrowDownToLine}
+        value={perUnit(data.byUnit, "in", "+")}
+        context="Purchases, additions"
+      />
+      <StatCard
+        label="Issued / reduced"
+        icon={ArrowUpFromLine}
+        value={perUnit(data.byUnit, "out", "−")}
+        context="Reversals, reductions"
+      />
+      <StatCard
+        label="Stock value"
+        icon={Wallet}
+        value={formatMoney(stock.stockValue)}
+        context={
+          stock.reorder > 0
+            ? `${stock.reorder} fabric${stock.reorder === 1 ? "" : "s"} need reorder`
+            : `${stock.fabrics} fabric${stock.fabrics === 1 ? "" : "s"}, none need reorder`
+        }
+        href={stock.reorder > 0 ? "/fabric?stock=low" : "/fabric"}
+      />
+    </section>
+  );
+}
+
+function StatsSkeleton({ label, heading = false }: { label: string; heading?: boolean }) {
+  return (
+    <div aria-label={label} aria-busy className="grid gap-3">
+      {heading ? <Skeleton className="h-5 w-56" /> : null}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <StatCardSkeleton key={index} />
+        ))}
       </div>
     </div>
   );
 }
 
 export function FabricLedger() {
-  const { data: user } = useCurrentUser();
   const fabrics = useFabricOptions();
   // `fabric` (the picked fabric's id) is the page's own URL key; links point here with it.
   const table = useDataTableState(COLUMNS, ["fabric"]);
@@ -312,12 +337,10 @@ export function FabricLedger() {
   const notFound =
     detail.error instanceof ApiError && (detail.error.code === "NOT_FOUND" || detail.error.code === "VALIDATION_ERROR");
   const movements = useMovements({ ...params, page: table.page, pageSize: table.pageSize });
-  const [dialog, setDialog] = useState<{ kind: "adjust" | "purchase"; key: number } | null>(null);
 
   const fabric = detail.data;
   const columns = fabricId ? COLUMNS.filter((column) => column.id !== "fabricName") : COLUMNS;
   const data = movements.data;
-  const summary = data?.summary;
   const from = table.filters.dateFrom;
   const to = table.filters.dateTo;
   const period = from || to ? `${from ? formatDate(from) : "Start"} – ${to ? formatDate(to) : "today"}` : "All time";
@@ -329,7 +352,6 @@ export function FabricLedger() {
       description="Every stock movement with its running balance. Entries are never edited or deleted; corrections are new entries."
     >
       <div className="grid gap-4">
-        {fabricId && detail.isPending ? <FabricHeaderSkeleton /> : null}
         {notFound ? (
           <div className="rounded-lg border bg-card">
             <EmptyState
@@ -343,48 +365,17 @@ export function FabricLedger() {
               }
             />
           </div>
-        ) : null}
-        {fabric ? (
-          <FabricHeader
+        ) : (
+          <LedgerStats
+            fabricId={fabricId}
             fabric={fabric}
-            onPurchase={
-              hasPermission(user, "fabric.inward") ? () => setDialog({ kind: "purchase", key: Date.now() }) : undefined
-            }
-            onAdjust={
-              hasPermission(user, "fabric.adjust") ? () => setDialog({ kind: "adjust", key: Date.now() }) : undefined
-            }
+            data={data}
+            period={period}
+            to={to}
+            refreshing={movements.isPlaceholderData}
+            failed={movements.isError}
           />
-        ) : null}
-
-        {fabricId && !summary && movements.isPending && !notFound ? (
-          <div className="rounded-lg border bg-card" aria-hidden>
-            <div className="border-b px-4 py-2.5">
-              <Skeleton className="h-3 w-16 opacity-70" />
-            </div>
-            <div className="p-4 sm:p-5">
-              <TilesSkeleton />
-            </div>
-          </div>
-        ) : null}
-        {fabric && summary ? (
-          <section aria-label={`Movement summary, ${period}`} className="rounded-lg border bg-card">
-            <p className="border-b px-4 py-2 text-xs font-medium text-muted-foreground">{period}</p>
-            <div className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-4 sm:p-5">
-              <Tile label="Opening" value={formatQty(summary.opening, fabric.unit)} />
-              <Tile
-                label="Received"
-                value={summary.totalIn ? `+${formatQty(summary.totalIn, fabric.unit)}` : formatQty(0, fabric.unit)}
-                className={cn(summary.totalIn > 0 && "text-success")}
-              />
-              <Tile
-                label="Issued / reduced"
-                value={summary.totalOut ? `−${formatQty(summary.totalOut, fabric.unit)}` : formatQty(0, fabric.unit)}
-                className={cn(summary.totalOut > 0 && "text-destructive")}
-              />
-              <Tile label="Closing" value={formatQty(summary.closing, fabric.unit)} />
-            </div>
-          </section>
-        ) : null}
+        )}
 
         {notFound ? null : (
           <DataTable
@@ -452,13 +443,6 @@ export function FabricLedger() {
             )}
           />
         )}
-
-        {fabric && dialog?.kind === "adjust" ? (
-          <AdjustStockDialog key={dialog.key} fabric={fabric} open onOpenChange={() => setDialog(null)} />
-        ) : null}
-        {fabric && dialog?.kind === "purchase" ? (
-          <InwardFormDialog key={dialog.key} defaultFabricId={fabric.id} open onOpenChange={() => setDialog(null)} />
-        ) : null}
       </div>
     </FabricPage>
   );

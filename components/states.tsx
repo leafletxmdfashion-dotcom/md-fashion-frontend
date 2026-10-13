@@ -50,7 +50,9 @@ export function ErrorState({
       ? "The server could not be reached. Check your connection."
       : error instanceof ApiError && error.code === "AUTH_FORBIDDEN"
         ? "Your role does not allow this. Ask an administrator for access."
-        : "Something went wrong on our side. Your data is safe.";
+        : error instanceof ApiError && error.code === "RATE_LIMITED"
+          ? "Too many requests in a short time. Wait a moment, then try again."
+          : "Something went wrong on our side. Your data is safe.";
   return (
     <div role="alert" className={cn("flex flex-col items-center gap-2 px-4 py-14 text-center", className)}>
       <span className="mb-1 flex size-11 items-center justify-center rounded-lg bg-destructive-soft text-destructive">

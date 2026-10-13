@@ -23,7 +23,12 @@ export function getSafeRedirect(next: string | null | undefined): string {
   }
 }
 
-export function loginPathFor(currentPath: string): string {
+/** Login URL that returns to `currentPath` afterwards, optionally explaining why (`reason`). */
+export function loginPathFor(currentPath: string, reason?: string): string {
+  const params = new URLSearchParams();
   const next = getSafeRedirect(currentPath);
-  return next === DEFAULT_AUTHENTICATED_PATH ? "/login" : `/login?next=${encodeURIComponent(next)}`;
+  if (next !== DEFAULT_AUTHENTICATED_PATH) params.set("next", next);
+  if (reason) params.set("reason", reason);
+  const query = params.toString();
+  return query ? `/login?${query}` : "/login";
 }

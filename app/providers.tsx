@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { authKeys } from "@/features/auth/api/auth.keys";
+import { onSessionMessage, signOut } from "@/features/auth/lib/sign-out";
 import { ApiError, setUnauthenticatedHandler } from "@/lib/api-client";
 
 function makeQueryClient() {
@@ -28,10 +29,22 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(makeQueryClient);
 
   useEffect(() => {
-    // Any API 401 means the session ended (expired, revoked, user disabled). Flip the
-    // cached user to signed-out; AuthGuard then redirects. No retry, so no 401 loops.
-    setUnauthenticatedHandler(() => queryClient.setQueryData(authKeys.me(), null));
-    return () => setUnauthenticatedHandler(null);
+    const signedIn = () => Boolean(queryClient.getQueryData(authKeys.me()));
+    // Any API 401 while signed in means the session ended (expired, revoked, user
+    // disabled): sign out once. Signed-out pages (login) get 401s by design.
+    setUnauthenticatedHandler(() => {
+      if (signedIn()) void signOut("expired");
+    });
+    // Follow the other tabs: their sign-out ends this tab too; their sign-in
+    // re-checks the session here (e.g. a login page left open).
+    const stopListening = onSessionMessage((message) => {
+      if (message === "signed-out" && signedIn()) void signOut("elsewhere");
+      if (message === "signed-in") void queryClient.invalidateQueries({ queryKey: authKeys.me() });
+    });
+    return () => {
+      setUnauthenticatedHandler(null);
+      stopListening();
+    };
   }, [queryClient]);
 
   return (

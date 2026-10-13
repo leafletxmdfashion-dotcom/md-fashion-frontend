@@ -70,7 +70,18 @@ test("fabric master, purchase, adjustment, ledger and reversal work end to end",
   await expect(ledgerRows).toHaveCount(3);
   await expect(ledgerRows.first()).toContainText("Adjustment −");
   await expect(ledgerRows.first()).toContainText("150 kg");
-  await expect(page.getByLabel(/Movement summary/)).toContainText("150 kg");
+  const fabricStats = page.getByLabel(/Movement summary/);
+  await expect(fabricStats).toContainText("In stock now");
+  await expect(fabricStats).toContainText("150 kg");
+  // No duplicate action card here: adjust and purchase live in Fabric Master and Purchases.
+  await expect(page.getByRole("button", { name: "Adjust stock" })).toHaveCount(0);
+
+  // All fabrics: activity and stock value.
+  await page.goto("/fabric/ledger");
+  const allStats = page.getByLabel("Ledger summary");
+  await expect(allStats).toContainText("Movements");
+  await expect(allStats).toContainText("+160 kg");
+  await expect(allStats).toContainText("−10 kg");
 
   // Reverse the second roll from the purchase register.
   await page.goto("/fabric/purchases");
