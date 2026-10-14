@@ -72,7 +72,7 @@ export function Page({
   return (
     <>
       <Topbar title={title} />
-      <div className="mx-auto grid w-full max-w-[1680px] flex-1 content-start gap-6 p-4 sm:p-6 xl:p-7">
+      <div className="grid w-full flex-1 content-start gap-6 p-4 sm:p-6 xl:p-7">
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           <div className="min-w-0">
             <h1 className="text-xl font-bold text-foreground sm:text-2xl">{title}</h1>

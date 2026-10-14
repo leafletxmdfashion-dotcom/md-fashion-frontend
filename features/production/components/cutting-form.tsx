@@ -423,7 +423,10 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
   );
 
   return (
-    <div ref={topRef} className="mx-auto grid w-full max-w-7xl scroll-mt-20 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
+    <div
+      ref={topRef}
+      className="grid w-full scroll-mt-20 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]"
+    >
       <div className="grid min-w-0 gap-10">
         {formError ? <FormAlert>{formError}</FormAlert> : null}
 

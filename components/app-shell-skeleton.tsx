@@ -40,7 +40,7 @@ export function AppShellSkeleton() {
           <Skeleton className="size-6" />
           <Skeleton className="h-3.5 w-40" />
         </div>
-        <div className="mx-auto grid w-full max-w-[1680px] content-start gap-6 p-4 sm:p-6 xl:p-7">
+        <div className="grid w-full content-start gap-6 p-4 sm:p-6 xl:p-7">
           <div className="grid gap-2">
             <Skeleton className="h-7 w-48" />
             <Skeleton className="h-4 w-80 max-w-full opacity-70" />
