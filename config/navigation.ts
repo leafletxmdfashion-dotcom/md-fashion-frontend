@@ -2,7 +2,6 @@ import {
   Calculator,
   ChartNoAxesCombined,
   ClipboardCheck,
-  ClipboardList,
   FileClock,
   Grid3x3,
   LayoutDashboard,
@@ -11,6 +10,7 @@ import {
   PackageCheck,
   PackagePlus,
   RotateCcw,
+  Ruler,
   Scissors,
   ScrollText,
   Settings,
@@ -26,8 +26,8 @@ import {
 
 import type { NavGroup } from "@/types/navigation";
 
-// ponytail: production modules have no API permissions yet, so their items are
-// visible to every signed-in user. Add a `permission` once the catalog has one.
+// ponytail: modules not built yet have no API permissions, so their placeholder items
+// are visible to every signed-in user. Add a `permission` once the catalog has one.
 export const navigation: NavGroup[] = [
   {
     title: "Overview",
@@ -69,22 +69,10 @@ export const navigation: NavGroup[] = [
     title: "Production",
     items: [
       {
-        title: "Item Master",
-        href: "/items",
-        icon: Tags,
-        description: "Articles, size templates and default fabric for each design.",
-      },
-      {
-        title: "Production Lots",
-        href: "/lots",
-        icon: ClipboardList,
-        description: "Create Lots per article and follow each one from cutting to godown.",
-      },
-      {
         title: "Cutting",
         href: "/cutting",
         icon: Scissors,
-        description: "Marker ratios, Pala layers, roll usage and size-wise cut output.",
+        permission: "production.view",
       },
       {
         title: "Stitching / Jogadi",
@@ -119,6 +107,23 @@ export const navigation: NavGroup[] = [
     ],
   },
   {
+    title: "Setup / Masters",
+    items: [
+      {
+        title: "Items / Designs",
+        href: "/items",
+        icon: Tags,
+        permission: "production.view",
+      },
+      {
+        title: "Size Templates",
+        href: "/size-templates",
+        icon: Ruler,
+        permission: "production.view",
+      },
+    ],
+  },
+  {
     title: "Workers",
     items: [
       {
@@ -126,7 +131,7 @@ export const navigation: NavGroup[] = [
         href: "/karigar",
         icon: UserRound,
         exact: true,
-        description: "Workers, categories, piece rates and payroll defaults.",
+        permission: "karigar.view",
       },
       {
         title: "Jogadi Teams",

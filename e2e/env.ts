@@ -42,6 +42,8 @@ export const E2E = {
       TRUST_PROXY: "loopback",
       MAIL_TRANSPORT: "outbox",
       MAIL_OUTBOX_DIR: this.outboxDir,
+      // Every test runs from one address; the production default would throttle the suite.
+      API_RATE_LIMIT_PER_MINUTE: "5000",
     };
   },
 };

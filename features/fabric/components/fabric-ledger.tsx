@@ -35,6 +35,8 @@ const TYPE_TONE: Record<MovementType, StatusTone> = {
   PURCHASE_REVERSAL: "danger",
   ADJUSTMENT_IN: "info",
   ADJUSTMENT_OUT: "warning",
+  CUTTING_ISSUE: "neutral",
+  CUTTING_RETURN: "info",
 };
 
 function Reference({ movement }: { movement: Movement }) {
@@ -112,24 +114,6 @@ const COLUMNS: DataColumn<Movement>[] = [
     skeleton: { sub: true, width: "w-16" },
     csv: (movement) => (movement.inward ? inwardNumber(movement.inward.number) : movement.reason),
     cell: (movement) => <Reference movement={movement} />,
-  },
-  {
-    id: "colorRoll",
-    header: "Colour / roll",
-    className: "hidden lg:table-cell",
-    sortable: true,
-    filter: { type: "text", placeholder: "Colour or roll contains…" },
-    skeleton: { sub: true, width: "w-14" },
-    csv: (movement) => [movement.color, movement.rollRef].filter(Boolean).join(" / "),
-    cell: (movement) =>
-      movement.color || movement.rollRef ? (
-        <>
-          <p>{movement.color ?? "—"}</p>
-          <p className="text-xs text-muted-foreground">{movement.rollRef ?? ""}</p>
-        </>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
   },
   {
     id: "qtyIn",
@@ -390,7 +374,7 @@ export function FabricLedger() {
             error={movements.error}
             onRetry={() => void movements.refetch()}
             searchLabel="Search movements"
-            searchPlaceholder="Search fabric, colour, roll, reason…"
+            searchPlaceholder="Search fabric, reason…"
             isEmpty={Object.keys(columnParams).length === 0}
             empty={{
               icon: ScrollText,

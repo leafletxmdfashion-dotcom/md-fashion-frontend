@@ -1,5 +1,11 @@
 export type FabricUnit = "KG" | "METER";
-export type MovementType = "PURCHASE_IN" | "PURCHASE_REVERSAL" | "ADJUSTMENT_IN" | "ADJUSTMENT_OUT";
+export type MovementType =
+  | "PURCHASE_IN"
+  | "PURCHASE_REVERSAL"
+  | "ADJUSTMENT_IN"
+  | "ADJUSTMENT_OUT"
+  | "CUTTING_ISSUE"
+  | "CUTTING_RETURN";
 
 export interface Fabric {
   id: string;
@@ -58,8 +64,6 @@ export interface Inward {
   amount: number;
   supplier: string | null;
   invoiceRef: string | null;
-  color: string | null;
-  rollRef: string | null;
   notes: string | null;
   createdBy: string | null;
   createdAt: string;
@@ -73,8 +77,6 @@ export interface InwardInput {
   rate: number;
   supplier: string | null;
   invoiceRef: string | null;
-  color: string | null;
-  rollRef: string | null;
   notes: string | null;
 }
 
@@ -96,8 +98,6 @@ export interface Movement {
   qtyIn: number;
   qtyOut: number;
   balance: number;
-  color: string | null;
-  rollRef: string | null;
   reason: string | null;
   inward: { id: string; number: number; invoiceRef: string | null; supplier: string | null } | null;
   createdBy: string | null;

@@ -107,8 +107,6 @@ export function InwardDetailSheet({
                 </Row>
                 <Row label="Supplier">{inward.supplier}</Row>
                 <Row label="Invoice / bill">{inward.invoiceRef}</Row>
-                <Row label="Colour">{inward.color}</Row>
-                <Row label="Than / roll">{inward.rollRef}</Row>
                 <Row label="Notes">{inward.notes}</Row>
                 <Row label="Posted by">
                   {inward.createdBy ?? "—"}

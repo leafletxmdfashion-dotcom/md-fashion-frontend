@@ -22,7 +22,7 @@ test("fabric master, purchase, adjustment, ledger and reversal work end to end",
   await expect(row).toContainText("FB-CTJ");
   await expect(row).toContainText("0 kg");
 
-  // Purchase two rolls on one invoice, one entry each.
+  // Two purchases on one invoice, one entry each.
   await row.getByRole("button", { name: "Row actions" }).click();
   await page.getByRole("menuitem", { name: "Record purchase" }).click();
   const purchase = page.getByRole("dialog");
@@ -30,8 +30,6 @@ test("fabric master, purchase, adjustment, ledger and reversal work end to end",
   await purchase.getByLabel("Rate").fill("450");
   await purchase.getByLabel("Supplier").fill("Sunrise Knits");
   await purchase.getByLabel("Invoice / bill no.").fill("INV-2401");
-  await purchase.getByLabel("Colour").fill("Red");
-  await purchase.getByLabel("Than / roll no.").fill("R-001");
   await expect(purchase.getByText("Rs 54,000.00")).toBeVisible();
   await purchase.getByRole("button", { name: "Post purchase" }).click();
   await expect(page.getByText("FI-0001 posted")).toBeVisible();
@@ -44,7 +42,6 @@ test("fabric master, purchase, adjustment, ledger and reversal work end to end",
   await purchase.getByLabel("Rate").fill("450");
   await purchase.getByLabel("Supplier").fill("Sunrise Knits");
   await purchase.getByLabel("Invoice / bill no.").fill("INV-2401");
-  await purchase.getByLabel("Than / roll no.").fill("R-002");
   await purchase.getByRole("button", { name: "Post purchase" }).click();
   await expect(purchase).toBeHidden();
   await expect(row).toContainText("160 kg");
@@ -85,7 +82,7 @@ test("fabric master, purchase, adjustment, ledger and reversal work end to end",
 
   // Reverse the second roll from the purchase register.
   await page.goto("/fabric/purchases");
-  await page.getByLabel("Search purchases").fill("R-002");
+  await page.getByLabel("Search purchases").fill("FI-0002");
   await expect(page.getByRole("row").filter({ hasText: "Cotton Jersey" })).toHaveCount(1);
   await page.getByRole("row").filter({ hasText: "Cotton Jersey" }).click();
   const sheet = page.getByRole("dialog");
@@ -136,7 +133,7 @@ test("purchase register pages, resizes, searches and keeps filters in the URL", 
         inwardDate: today,
         quantity: index,
         rate: 10,
-        rollRef: `PG-${String(index).padStart(3, "0")}`,
+        invoiceRef: `PG-${String(index).padStart(3, "0")}`,
       });
     }
   });

@@ -26,7 +26,7 @@ export function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-1.5">
+    <div className="grid content-start gap-1.5">
       <div className="flex min-h-4 items-center justify-between gap-2">
         <Label htmlFor={id} className="text-[13px] font-medium text-foreground/90">
           {label}

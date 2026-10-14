@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint:slop": "oxlint"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -34,6 +35,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@oxlint/plugins": "1.88.0",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/turbopack": "^4",
     "@tanstack/eslint-plugin-query": "^5.104.1",
@@ -46,6 +48,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "jsdom": "^30.1.2",
+    "oxlint": "1.88.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.3"

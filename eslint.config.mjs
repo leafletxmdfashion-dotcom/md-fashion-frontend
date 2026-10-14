@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored Oxlint plugin; linted by its own upstream, not by this project.
+    "tools/**",
   ]),
 ]);
 

@@ -37,8 +37,6 @@ const schema = z.object({
   rate: z.number({ invalid_type_error: "Enter the rate." }).min(0, "Rate cannot be negative."),
   supplier: z.string().trim().max(100),
   invoiceRef: z.string().trim().max(50),
-  color: z.string().trim().max(50),
-  rollRef: z.string().trim().max(50),
   notes: z.string().trim().max(500),
 });
 
@@ -49,8 +47,6 @@ const blank = (fabricId = ""): Partial<Values> => ({
   inwardDate: todayISO(),
   supplier: "",
   invoiceRef: "",
-  color: "",
-  rollRef: "",
   notes: "",
 });
 
@@ -81,8 +77,6 @@ export function InwardFormDialog({
       ...values,
       supplier: values.supplier || null,
       invoiceRef: values.invoiceRef || null,
-      color: values.color || null,
-      rollRef: values.rollRef || null,
       notes: values.notes || null,
     };
     try {
@@ -208,20 +202,6 @@ export function InwardFormDialog({
                 {...fieldProps("inward-invoice", errors.invoiceRef?.message)}
                 autoComplete="off"
                 {...form.register("invoiceRef")}
-              />
-            </Field>
-            <Field id="inward-color" label="Colour" error={errors.color?.message}>
-              <Input
-                {...fieldProps("inward-color", errors.color?.message)}
-                autoComplete="off"
-                {...form.register("color")}
-              />
-            </Field>
-            <Field id="inward-roll" label="Than / roll no." error={errors.rollRef?.message}>
-              <Input
-                {...fieldProps("inward-roll", errors.rollRef?.message)}
-                autoComplete="off"
-                {...form.register("rollRef")}
               />
             </Field>
           </div>

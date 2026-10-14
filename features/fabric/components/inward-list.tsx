@@ -62,24 +62,6 @@ const COLUMNS: DataColumn<Inward>[] = [
     ),
   },
   {
-    id: "colorRoll",
-    header: "Colour / roll",
-    className: "hidden lg:table-cell",
-    sortable: true,
-    filter: { type: "text", placeholder: "Colour or roll contains…" },
-    skeleton: { sub: true, width: "w-14" },
-    csv: (inward) => [inward.color, inward.rollRef].filter(Boolean).join(" / "),
-    cell: (inward) =>
-      inward.color || inward.rollRef ? (
-        <>
-          <p>{inward.color ?? "—"}</p>
-          <p className="text-xs text-muted-foreground">{inward.rollRef ?? ""}</p>
-        </>
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      ),
-  },
-  {
     id: "quantity",
     header: "Quantity",
     align: "right",
@@ -187,7 +169,7 @@ export function InwardList() {
         error={inwards.error}
         onRetry={() => void inwards.refetch()}
         searchLabel="Search purchases"
-        searchPlaceholder="Search fabric, supplier, invoice, roll, FI-no…"
+        searchPlaceholder="Search fabric, supplier, invoice, FI-no…"
         isEmpty={!anyFilter}
         empty={{
           icon: PackagePlus,

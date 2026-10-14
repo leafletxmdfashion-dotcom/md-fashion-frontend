@@ -68,7 +68,7 @@ export function NavUser({ user }: { user: CurrentUser }) {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuLabel className="text-xs text-muted-foreground">Theme</DropdownMenuLabel>
-              <DropdownMenuRadioGroup value={theme ?? "system"} onValueChange={(value) => setTheme(String(value))}>
+              <DropdownMenuRadioGroup value={theme ?? "light"} onValueChange={(value) => setTheme(String(value))}>
                 <DropdownMenuRadioItem value="light">
                   <Sun />
                   Light

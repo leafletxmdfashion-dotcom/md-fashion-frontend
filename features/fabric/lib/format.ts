@@ -16,6 +16,8 @@ export const MOVEMENT_LABEL: Record<MovementType, string> = {
   PURCHASE_REVERSAL: "Purchase reversed",
   ADJUSTMENT_IN: "Adjustment +",
   ADJUSTMENT_OUT: "Adjustment −",
+  CUTTING_ISSUE: "Issued to cutting",
+  CUTTING_RETURN: "Returned from cutting",
 };
 
 export function formatMoney(value: number): string {
