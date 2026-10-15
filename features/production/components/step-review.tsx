@@ -1,119 +1,16 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Plus, Trash2 } from "lucide-react";
-import { Controller, useFieldArray } from "react-hook-form";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
-import { fieldProps } from "@/components/form/field";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 import { costOf, type BatchResult } from "../lib/cutting-calc";
 import { microKgText, moneyText } from "../lib/format";
 import { STEPS, type StepId } from "../lib/form-model";
-import { CellError } from "./form-parts";
-import type { StepProps } from "./step-details";
 
 export interface Blocker {
   step: StepId;
   message: string;
-}
-
-function ColourRejects({ form, errorAt, colourIndex, sizes }: StepProps & { colourIndex: number; sizes: string[] }) {
-  const rejects = useFieldArray({ control: form.control, name: `colours.${colourIndex}.rejects`, keyName: "key" });
-  const colourName = form.watch(`colours.${colourIndex}.name`) || `Colour ${colourIndex + 1}`;
-
-  return (
-    <div className="grid gap-2">
-      <p className="text-[13px] font-medium">{colourName}</p>
-      {rejects.fields.map((row, index) => {
-        const path = `colours.${colourIndex}.rejects.${index}`;
-        const id = `reject-${colourIndex}-${index}`;
-
-        return (
-          <div key={row.key} className="grid gap-2 sm:grid-cols-[8rem_8rem_minmax(0,1fr)_2.25rem] sm:items-start">
-            <div>
-              <Controller
-                control={form.control}
-                name={`colours.${colourIndex}.rejects.${index}.sizeLabel`}
-                render={({ field }) => (
-                  <Select
-                    items={sizes.map((size) => ({ value: size, label: size }))}
-                    value={field.value || null}
-                    onValueChange={(next) => field.onChange(next ?? "")}
-                  >
-                    <SelectTrigger
-                      id={`${id}-size`}
-                      className="w-full"
-                      aria-label={`Rejected size, ${colourName}`}
-                      aria-invalid={Boolean(errorAt(`${path}.sizeLabel`)) || undefined}
-                    >
-                      <SelectValue placeholder="Size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sizes.map((size) => (
-                        <SelectItem key={size} value={size}>
-                          {size}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              <CellError id={`${id}-size-error`} message={errorAt(`${path}.sizeLabel`)} />
-            </div>
-            <div>
-              <Input
-                {...fieldProps(`${id}-qty`, errorAt(`${path}.quantity`))}
-                aria-label={`Rejected pieces, ${colourName}`}
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                placeholder="Pieces"
-                className="text-right tabular-nums"
-                {...form.register(`colours.${colourIndex}.rejects.${index}.quantity`)}
-              />
-              <CellError id={`${id}-qty-error`} message={errorAt(`${path}.quantity`)} />
-            </div>
-            <div>
-              <Input
-                {...fieldProps(`${id}-reason`, errorAt(`${path}.reason`))}
-                aria-label={`Reason, ${colourName}`}
-                placeholder="Reason, e.g. hole in fabric"
-                autoComplete="off"
-                {...form.register(`colours.${colourIndex}.rejects.${index}.reason`)}
-              />
-              <CellError id={`${id}-reason-error`} message={errorAt(`${path}.reason`)} />
-            </div>
-            <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove rejected pieces" onClick={() => rejects.remove(index)}>
-              <Trash2 aria-hidden />
-            </Button>
-          </div>
-        );
-      })}
-      <div>
-        <Button type="button" variant="ghost" size="sm" onClick={() => rejects.append({ sizeLabel: "", quantity: "", reason: "" })}>
-          <Plus aria-hidden />
-          Add rejected pieces
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/** Section 4: pieces damaged in cutting, per colour and size. */
-export function RejectedPieces(props: StepProps) {
-  const sizes = props.calc.colours[0]?.sizes.map((size) => size.label) ?? [];
-
-  return (
-    <div className="grid gap-5 rounded-lg border bg-card p-4 sm:p-5">
-      {props.calc.colours.map((_, index) => (
-        <ColourRejects key={index} {...props} colourIndex={index} sizes={sizes} />
-      ))}
-    </div>
-  );
 }
 
 function Line({ label, value, tone }: { label: string; value: string; tone?: "warning" | "danger" | "muted" }) {
@@ -170,7 +67,6 @@ export function SummaryAside({
 
   const short = storeKg !== null && toIssueKg > storeKg;
   const rate = fabricRate === null ? null : fabricRate.toFixed(4);
-  const rejected = totals.plannedPieces - totals.acceptedPieces;
 
   return (
     <aside aria-label="Cutting summary" className="grid content-start gap-4 rounded-lg border bg-card p-4 text-[13px]">
@@ -206,7 +102,6 @@ export function SummaryAside({
               </span>
             ))}
           </div>
-          {rejected > 0 ? <p className="mt-1 text-xs text-destructive">{rejected} rejected, not counted</p> : null}
           {calc.colours.length > 1 ? (
             <p className="mt-1 text-xs text-muted-foreground">
               {calc.colours.map((colour, index) => `${colour.name || `Colour ${index + 1}`} ${colour.totals.acceptedPieces}`).join(" · ")}

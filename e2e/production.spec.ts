@@ -9,7 +9,7 @@ test("new cutting: typed lot, item and Thaan on one page, finalized into stock, 
   await login(page, "owner@garment.test");
   await expect(page).toHaveURL(/\/dashboard$/);
 
-  // Fabric in the store (100 kg at Rs 500/kg) and a cutting master paid Rs 2.50 per accepted piece.
+  // Fabric in the store (100 kg at Rs 500/kg) and a cutting master paid Rs 2.50 per piece.
   await page.evaluate(async () => {
     const csrf = ((await (await fetch("/api/v1/auth/csrf")).json()) as { data: { csrfToken: string } }).data.csrfToken;
     const post = async (url: string, body: object) =>
@@ -128,4 +128,29 @@ test("validation blocks posting more Pala than a Thaan can give", async ({ page 
   await page.getByLabel("Issued kg, Thaan TH-009").fill("1.5");
   await page.getByLabel("Confirmed Pala, Thaan TH-009").fill("");
   await expect(page.getByText(/Less than one Pala: all 1\.500 kg of Thaan TH-009 becomes wastage/).first()).toBeVisible();
+});
+
+test("sizes can be left out of a marker with 0 pieces per Pala, but not all of them", async ({ page }) => {
+  await page.goto("/login");
+  await login(page, "owner@garment.test");
+  await expect(page).toHaveURL(/\/dashboard$/);
+
+  await page.goto("/cutting/new");
+  await expect(page.getByRole("heading", { name: "Rejected pieces" })).toHaveCount(0);
+
+  for (const size of ["S", "M", "L", "XL"]) await page.getByLabel(`Pieces per Pala, size ${size}`).fill("0");
+
+  await expect(page.getByText("At least one size needs pieces per Pala.").first()).toBeVisible();
+
+  await page.getByLabel("Pieces per Pala, size S").fill("3");
+  await expect(page.getByText("At least one size needs pieces per Pala.")).toHaveCount(0);
+  await expect(page.getByText(/^3\s*pieces per Pala/)).toBeVisible();
+  await expect(page.getByLabel("Pieces per Pala, size M")).not.toHaveAttribute("aria-invalid", "true");
+
+  // 10 kg at 2.130 kg per Pala → 4 Pala, all of it size S.
+  await page.getByLabel("Measured Pala weight").fill("2.130");
+  await page.getByLabel("Colour", { exact: true }).fill("Blue");
+  await page.getByLabel("Thaan number, row 1").fill("TH-010");
+  await page.getByLabel("Issued kg, Thaan TH-010").fill("10");
+  await expect(page.getByRole("complementary", { name: "Cutting summary" })).toContainText(/S\s*12\s*M\s*0\s*L\s*0\s*XL\s*0/);
 });

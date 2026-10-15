@@ -181,9 +181,8 @@ export interface LotDetail {
   createdAt: string;
   batches: BatchListItem[];
   output: {
-    rows: { colour: string; size: string; planned: number; rejected: number; accepted: number; available: number }[];
+    rows: { colour: string; size: string; planned: number; accepted: number; available: number }[];
     planned: number;
-    rejected: number;
     accepted: number;
     available: number;
   };
@@ -205,12 +204,6 @@ export interface BatchRoll {
   wastageKg: string | null;
 }
 
-export interface Reject {
-  sizeLabel: string;
-  quantity: number;
-  reason: string;
-}
-
 export interface Batch {
   id: string;
   number: number;
@@ -228,7 +221,7 @@ export interface Batch {
   cuttingMaster: { id: string; name: string; payMode: PayMode } | null;
   marker: MarkerSettings & { calculatedPalaKg: string | null; activePalaKg: string | null };
   sizes: SizeRatio[];
-  colours: { id: string; name: string; rolls: BatchRoll[]; rejects: Reject[] }[];
+  colours: { id: string; name: string; rolls: BatchRoll[] }[];
   posted: {
     calculationVersion: number;
     issuedKg: string;
@@ -246,10 +239,8 @@ export interface Batch {
     colourName: string;
     sizeLabel: string;
     planned: number;
-    rejected: number;
     accepted: number;
     available: number;
-    rejectReason: string | null;
   }[];
   reversal: { at: string; by: string | null; reason: string } | null;
   createdBy: string | null;
@@ -268,7 +259,6 @@ export interface CuttingDraftInput {
     id?: string;
     name: string;
     rolls: { id?: string; thaan: string; issuedKg: string; returnedKg: string; confirmedLayers: number | null }[];
-    rejects: Reject[];
   }[];
   saveAsDefault: boolean;
 }

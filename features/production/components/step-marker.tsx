@@ -253,7 +253,7 @@ function SizeRatio({ form, calc, errorAt, canSaveDefault }: StepProps & { canSav
                   aria-label={`Pieces per Pala, size ${value?.label || index + 1}`}
                   type="number"
                   inputMode="numeric"
-                  min={1}
+                  min={0}
                   step={1}
                   className="text-right tabular-nums"
                   {...form.register(`sizes.${index}.piecesPerPala`)}

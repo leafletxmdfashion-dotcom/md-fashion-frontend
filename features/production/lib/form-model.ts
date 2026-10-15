@@ -23,17 +23,10 @@ export interface RollValues {
   confirmedLayers: string;
 }
 
-export interface RejectValues {
-  sizeLabel: string;
-  quantity: string;
-  reason: string;
-}
-
 export interface ColourValues {
   colourId: string;
   name: string;
   rolls: RollValues[];
-  rejects: RejectValues[];
 }
 
 export interface SizeValues {
@@ -78,7 +71,7 @@ export const emptyRoll = (): RollValues => ({
   confirmedLayers: "",
 });
 
-export const emptyColour = (): ColourValues => ({ colourId: "", name: "", rolls: [emptyRoll()], rejects: [] });
+export const emptyColour = (): ColourValues => ({ colourId: "", name: "", rolls: [emptyRoll()] });
 
 const DEFAULT_SIZES: SizeValues[] = ["S", "M", "L", "XL"].map((label) => ({ label, piecesPerPala: "1", pieceWeightG: "" }));
 
@@ -139,7 +132,6 @@ export function batchValues(batch: Batch): CuttingFormValues {
         returnedKg: roll.returnedKg === "0" ? "" : roll.returnedKg,
         confirmedLayers: text(roll.confirmedLayers),
       })),
-      rejects: colour.rejects.map((reject) => ({ ...reject, quantity: String(reject.quantity) })),
     })),
     saveAsDefault: false,
   };
@@ -180,11 +172,6 @@ export function calcInputsOf(values: CuttingFormValues): CalcInputs {
         returnedKg: roll.returnedKg.trim() || "0",
         confirmedLayers: roll.confirmedLayers.trim() === "" ? null : whole(roll.confirmedLayers),
       })),
-      rejects: colour.rejects.map((reject) => ({
-        sizeLabel: reject.sizeLabel,
-        quantity: whole(reject.quantity),
-        reason: reject.reason,
-      })),
     })),
   };
 }
@@ -203,8 +190,6 @@ export interface DraftPayload {
 
 const blankRoll = (roll: RollValues) => !roll.rollId && !roll.thaan.trim() && !roll.issuedKg.trim();
 
-const blankReject = (reject: RejectValues) => !reject.sizeLabel && !reject.quantity.trim() && !reject.reason.trim();
-
 /**
  * What a save sends. Rows left completely blank are skipped, so a half-filled form
  * can still be saved as a draft; the index maps keep server errors on the right row.
@@ -213,17 +198,14 @@ export function draftPayloadOf(values: CuttingFormValues): DraftPayload {
   const calculated = values.marker.weightSource === "CALCULATED";
   const colourIndex: number[] = [];
   const rollIndex: number[][] = [];
-  const rejectIndex: number[][] = [];
 
   const colours = values.colours.flatMap((colour, index) => {
     const rolls = colour.rolls.flatMap((roll, position) => (blankRoll(roll) ? [] : [{ roll, position }]));
-    const rejects = colour.rejects.flatMap((reject, position) => (blankReject(reject) ? [] : [{ reject, position }]));
 
     if (!colour.colourId && !colour.name.trim() && rolls.length === 0) return [];
 
     colourIndex.push(index);
     rollIndex.push(rolls.map((entry) => entry.position));
-    rejectIndex.push(rejects.map((entry) => entry.position));
 
     return [
       {
@@ -236,26 +218,19 @@ export function draftPayloadOf(values: CuttingFormValues): DraftPayload {
           returnedKg: roll.returnedKg.trim() || "0",
           confirmedLayers: roll.confirmedLayers.trim() === "" ? null : integerOr(roll.confirmedLayers, 0),
         })),
-        rejects: rejects.map(({ reject }) => ({
-          sizeLabel: reject.sizeLabel,
-          quantity: integerOr(reject.quantity, 0),
-          reason: reject.reason,
-        })),
       },
     ];
   });
 
   const toFormPath = (path: string) =>
-    path.replace(/^colours\.(\d+)(?:\.(rolls|rejects)\.(\d+))?/, (match, colour: string, list?: string, row?: string) => {
+    path.replace(/^colours\.(\d+)(?:\.rolls\.(\d+))?/, (match, colour: string, row?: string) => {
       const formColour = colourIndex[Number(colour)];
 
       if (formColour === undefined) return match;
 
-      if (!list || row === undefined) return `colours.${formColour}`;
+      if (row === undefined) return `colours.${formColour}`;
 
-      const rows = list === "rolls" ? rollIndex : rejectIndex;
-
-      return `colours.${formColour}.${list}.${rows[Number(colour)]?.[Number(row)] ?? row}`;
+      return `colours.${formColour}.rolls.${rollIndex[Number(colour)]?.[Number(row)] ?? row}`;
     });
 
   return {
@@ -284,20 +259,17 @@ export function draftPayloadOf(values: CuttingFormValues): DraftPayload {
   };
 }
 
-export type StepId = "details" | "marker" | "thaan" | "review";
+export type StepId = "details" | "marker" | "thaan";
 
 export const STEPS: { id: StepId; title: string; description: string }[] = [
   { id: "details", title: "Lot & item", description: "Lot number, what is cut, from which fabric and by whom" },
   { id: "marker", title: "Marker & sizes", description: "Weight of one Pala and the size ratio" },
   { id: "thaan", title: "Colours & Thaan", description: "Weight issued from each roll" },
-  { id: "review", title: "Rejected pieces", description: "Optional. Only accepted pieces go on to stitching" },
 ];
 
 /** Which form section owns a field path. */
 export function stepOf(path: string): StepId {
   if (path.startsWith("marker") || path.startsWith("sizes")) return "marker";
-
-  if (/^colours\.\d+\.rejects/.test(path)) return "review";
 
   if (path.startsWith("colours")) return "thaan";
 

@@ -18,7 +18,6 @@ function form(overrides: Partial<CuttingFormValues> = {}): CuttingFormValues {
         colourId: "",
         name: "Black",
         rolls: [{ rollId: "", status: "DRAFT", thaan: "TH-001", issuedKg: "30.500", returnedKg: "", confirmedLayers: "" }],
-        rejects: [],
       },
     ],
     ...overrides,
@@ -57,7 +56,7 @@ describe("production form model", () => {
     const black = values.colours[0]!;
 
     values.colours = [
-      { colourId: "", name: "", rolls: [emptyRoll()], rejects: [] },
+      { colourId: "", name: "", rolls: [emptyRoll()] },
       { ...black, rolls: [emptyRoll(), black.rolls[0]!] },
     ];
 
@@ -74,7 +73,6 @@ describe("production form model", () => {
     expect(stepOf("articleName")).toBe("details");
     expect(stepOf("sizes.2.label")).toBe("marker");
     expect(stepOf("colours.1.rolls.0.issuedKg")).toBe("thaan");
-    expect(stepOf("colours.1.rejects.0.quantity")).toBe("review");
   });
 
   it("matches item names the way the API does", () => {

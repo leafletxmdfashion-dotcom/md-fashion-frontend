@@ -62,7 +62,7 @@ export const CATEGORY_LABEL: Record<KarigarCategory, string> = {
 };
 
 export const PAY_MODE_LABEL: Record<PayMode, string> = {
-  PER_PIECE: "Per accepted piece",
+  PER_PIECE: "Per piece",
   PER_PALA: "Per Pala",
   PER_KG: "Per kg cut",
   FIXED_JOB: "Fixed per job",

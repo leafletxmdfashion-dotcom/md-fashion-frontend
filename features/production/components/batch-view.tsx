@@ -126,15 +126,7 @@ export function BatchView({ batch }: { batch: Batch }) {
             <Figure label="Consumed" value={kgText(batch.posted.consumedKg)} hint={`${batch.posted.pala} Pala`} />
             <Figure label="Returned" value={kgText(batch.posted.returnedKg)} />
             <Figure label="Wastage" value={kgText(batch.posted.wastageKg)} hint="Pala remainder" />
-            <Figure
-              label="Pieces"
-              value={String(batch.posted.acceptedPieces)}
-              hint={
-                batch.posted.plannedPieces !== batch.posted.acceptedPieces
-                  ? `${batch.posted.plannedPieces - batch.posted.acceptedPieces} rejected`
-                  : "All accepted"
-              }
-            />
+            <Figure label="Pieces" value={String(batch.posted.acceptedPieces)} />
             {batch.costs ? (
               <Figure
                 label="Fabric cost"
@@ -200,7 +192,7 @@ export function BatchView({ batch }: { batch: Batch }) {
                       {size}
                     </th>
                   ))}
-                  <th className="pb-2 text-right font-medium">Accepted</th>
+                  <th className="pb-2 text-right font-medium">Total</th>
                   <th className="pb-2 text-right font-medium">For stitching</th>
                 </tr>
               </thead>
@@ -215,11 +207,8 @@ export function BatchView({ batch }: { batch: Batch }) {
                         const output = rows.find((row) => row.sizeLabel === size);
 
                         return (
-                          <td key={size} className="py-2 text-right tabular-nums" title={output?.rejectReason ?? undefined}>
+                          <td key={size} className="py-2 text-right tabular-nums">
                             {output?.accepted ?? 0}
-                            {output && output.rejected > 0 ? (
-                              <span className="ml-1 text-xs text-destructive">−{output.rejected}</span>
-                            ) : null}
                           </td>
                         );
                       })}

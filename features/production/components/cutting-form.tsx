@@ -50,7 +50,7 @@ import type { Article, Batch, LotListItem } from "../types/production.types";
 import { Figure } from "./form-parts";
 import { StepDetails } from "./step-details";
 import { StepMarker } from "./step-marker";
-import { RejectedPieces, SummaryAside, type Blocker } from "./step-review";
+import { SummaryAside, type Blocker } from "./step-review";
 import { StepThaan } from "./step-thaan";
 
 export type FormMode = { kind: "new" } | { kind: "edit"; batch: Batch };
@@ -450,10 +450,6 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
         <Section id="thaan" index={2}>
           <StepThaan {...stepProps} storeKg={storeKg} toIssueKg={toIssueKg} fabricName={selectedFabric?.name ?? null} />
         </Section>
-
-        <Section id="review" index={3}>
-          <RejectedPieces {...stepProps} />
-        </Section>
       </div>
 
       <div className="lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
@@ -492,7 +488,7 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
           <DialogHeader>
             <DialogTitle>Finalize cutting?</DialogTitle>
             <DialogDescription>
-              Issues any Thaan still in the store, posts consumption and wastage, makes the accepted pieces available for
+              Issues any Thaan still in the store, posts consumption and wastage, makes the cut pieces available for
               stitching, books fabric cost and the cutting master&apos;s earning, and locks the cutting. Later corrections
               need a reversal.
             </DialogDescription>
@@ -507,7 +503,7 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
               tone={calc.totals.wastageKg > 0n ? "warning" : "default"}
             />
             <Figure label="Pala" value={String(calc.totals.confirmedPala)} />
-            <Figure label="Accepted pieces" value={String(calc.totals.acceptedPieces)} />
+            <Figure label="Pieces" value={String(calc.totals.acceptedPieces)} />
           </dl>
           {calc.warnings.length > 0 ? (
             <ul className="grid gap-1 text-[13px] text-warning">

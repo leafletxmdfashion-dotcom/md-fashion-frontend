@@ -166,7 +166,7 @@ function Stats() {
       <StatCard
         label="Pieces cut this month"
         value={summary.piecesThisMonth.toLocaleString("en-IN")}
-        context="Accepted, from finalized cutting"
+        context="From finalized cutting"
         href="/cutting?status=FINALIZED"
       />
       <StatCard
