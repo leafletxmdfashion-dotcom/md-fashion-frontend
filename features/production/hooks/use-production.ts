@@ -34,20 +34,8 @@ export function useBatch(id: string | undefined) {
   });
 }
 
-export function useArticles(filters: ListFilters) {
-  return useQuery({
-    queryKey: productionKeys.articles(filters),
-    queryFn: ({ signal }) => productionApi.articles(filters, signal),
-    placeholderData: keepPreviousData,
-  });
-}
-
 export function useArticleOptions() {
   return useQuery({ queryKey: productionKeys.articleOptions(), queryFn: ({ signal }) => productionApi.articleOptions(signal) });
-}
-
-export function useSizeTemplates() {
-  return useQuery({ queryKey: productionKeys.sizeTemplates(), queryFn: ({ signal }) => productionApi.sizeTemplates(signal) });
 }
 
 export function useKarigars(filters: ListFilters) {
@@ -65,17 +53,19 @@ export function useKarigarOptions(category?: string) {
   });
 }
 
-/** Production writes can move fabric stock, so production and fabric queries both refresh. */
+/**
+ * Production writes can move fabric stock, so production and fabric queries both refresh.
+ * The refresh runs in the background: awaiting it here would keep the button busy until
+ * every open list had refetched, long after the write itself was done.
+ */
 function useProductionMutation<TInput, TResult>(mutationFn: (input: TInput) => Promise<TResult>) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn,
-    onSettled: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: productionKeys.all }),
-        queryClient.invalidateQueries({ queryKey: fabricKeys.all }),
-      ]);
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: productionKeys.all });
+      void queryClient.invalidateQueries({ queryKey: fabricKeys.all });
     },
   });
 }
@@ -95,11 +85,5 @@ export const useIssueBatch = () => useProductionMutation(productionApi.issue);
 export const useFinalizeBatch = () => useProductionMutation(productionApi.finalize);
 
 export const useReverseBatch = () => useProductionMutation(productionApi.reverse);
-
-export const useSaveArticle = () => useProductionMutation(productionApi.saveArticle);
-
-export const useSaveSizeTemplate = () => useProductionMutation(productionApi.saveSizeTemplate);
-
-export const useDeleteSizeTemplate = () => useProductionMutation(productionApi.deleteSizeTemplate);
 
 export const useSaveKarigar = () => useProductionMutation(productionApi.saveKarigar);

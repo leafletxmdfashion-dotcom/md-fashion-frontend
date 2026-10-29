@@ -14,19 +14,19 @@ const groups: NavGroup[] = [
         title: "Inventory",
         icon: Boxes,
         items: [
-          { title: "Stock", href: "/inventory", permission: "inventory.view" },
-          { title: "Adjust", href: "/inventory/adjust", permission: "inventory.adjust" },
+          { title: "Stock", href: "/inventory", permission: "fabric.view" },
+          { title: "Adjust", href: "/inventory/adjust", permission: "fabric.adjust" },
         ],
       },
       { title: "Activity", href: "/activity", icon: Users },
     ],
   },
-  { title: "System", items: [{ title: "Settings", href: "/settings", icon: Settings, permission: "settings.manage" }] },
+  { title: "System", items: [{ title: "Settings", href: "/settings", icon: Settings, permission: "roles.manage" }] },
 ];
 
 describe("filterNavigation", () => {
   it("removes unauthorized items and nested children", () => {
-    const result = filterNavigation(groups, ["dashboard.view", "inventory.view"]);
+    const result = filterNavigation(groups, ["dashboard.view", "fabric.view"]);
     const inventory = result[1]!.items.find((item) => item.title === "Inventory");
     expect(inventory?.items?.map((item) => item.title)).toEqual(["Stock"]);
   });

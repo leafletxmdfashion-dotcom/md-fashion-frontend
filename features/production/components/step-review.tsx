@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-import { costOf, type BatchResult } from "../lib/cutting-calc";
+import { costOf, type BatchResult, type Issue } from "../lib/cutting-calc";
 import { microKgText, moneyText } from "../lib/format";
 import { STEPS, type StepId } from "../lib/form-model";
 
@@ -34,7 +34,7 @@ function Line({ label, value, tone }: { label: string; value: string; tone?: "wa
 /** The live summary beside the form: output, material balance, cost and what still blocks posting. */
 export function SummaryAside({
   calc,
-  target,
+  warnings,
   blockers,
   onGoTo,
   fabricRate,
@@ -43,7 +43,8 @@ export function SummaryAside({
   actions,
 }: {
   calc: BatchResult;
-  target: number | null;
+  /** Calculator warnings, on form row paths. */
+  warnings: Issue[];
   blockers: Blocker[];
   onGoTo: (step: StepId) => void;
   /** Average purchase rate per kg; null when costs are hidden or unknown. */
@@ -53,6 +54,7 @@ export function SummaryAside({
   actions: React.ReactNode;
 }) {
   const { totals } = calc;
+  const thaanCount = calc.colours.reduce((sum, colour) => sum + colour.rolls.length, 0);
   const sizes = calc.colours[0]?.sizes.map((size) => size.label) ?? [];
 
   const bySize = sizes.map((label) => ({
@@ -80,7 +82,7 @@ export function SummaryAside({
           <dt className="text-xs text-muted-foreground">Pieces</dt>
           <dd className="text-2xl font-bold tabular-nums">{totals.acceptedPieces.toLocaleString("en-IN")}</dd>
           <dd className="text-xs text-muted-foreground">
-            {target !== null && Number.isFinite(target) ? `of ${target.toLocaleString("en-IN")} target` : "No target yet"}
+            {thaanCount} Thaan · {calc.colours.length} colour{calc.colours.length === 1 ? "" : "s"}
           </dd>
         </div>
         <div className="rounded-md bg-muted/60 px-3 py-2">
@@ -165,9 +167,9 @@ export function SummaryAside({
             </ul>
           </>
         )}
-        {calc.warnings.length > 0 ? (
+        {warnings.length > 0 ? (
           <ul className="mt-2 grid gap-1 text-xs text-warning">
-            {calc.warnings.map((warning) => (
+            {warnings.map((warning) => (
               <li key={warning.path}>{warning.message}</li>
             ))}
           </ul>

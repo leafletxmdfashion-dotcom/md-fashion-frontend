@@ -13,6 +13,9 @@ import { formatKg, parseKg } from "./cutting-calc";
 
 export const cutNumber = (number: number) => `CUT-${String(number).padStart(4, "0")}`;
 
+/** Karigar code, so two people with the same name can be told apart in pickers. */
+export const karigarCode = (number: number) => `K-${String(number).padStart(3, "0")}`;
+
 const grouped = new Intl.NumberFormat("en-IN");
 
 /** Exact decimal kg text from the API → "29.820 kg" (3 decimals, rounded half up, grouped). */

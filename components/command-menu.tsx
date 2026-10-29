@@ -8,7 +8,6 @@ import {
   LogOut,
   Moon,
   PackagePlus,
-  Plus,
   Search,
   ShieldCheck,
   Sun,
@@ -24,7 +23,6 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/c
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
 import { useLogout } from "@/features/auth/hooks/use-logout";
 import { hasPermission } from "@/features/auth/lib/permissions";
-import { FabricFormDialog } from "@/features/fabric/components/fabric-form-dialog";
 import { InwardFormDialog } from "@/features/fabric/components/inward-form-dialog";
 import { useFabricOptions } from "@/features/fabric/hooks/use-fabric";
 import { formatQty } from "@/features/fabric/lib/format";
@@ -73,7 +71,7 @@ export function CommandMenu({ groups }: { groups: NavGroup[] }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const [dialog, setDialog] = useState<{ kind: "purchase" | "fabric"; key: number } | null>(null);
+  const [dialog, setDialog] = useState<{ kind: "purchase"; key: number } | null>(null);
   const listId = useId();
   // Rendered client-side only (the shell waits for the session), so navigator is safe here.
   const shortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K";
@@ -98,22 +96,11 @@ export function CommandMenu({ groups }: { groups: NavGroup[] }) {
       list.push({
         id: "action:purchase",
         group: "Actions",
-        label: "Record fabric purchase",
+        label: "Add fabric purchase",
         hint: "Purchase / Inward",
         icon: PackagePlus,
-        keywords: "inward buy new",
+        keywords: "inward buy new fabric record create",
         run: () => setDialog({ kind: "purchase", key: Date.now() }),
-      });
-    }
-    if (hasPermission(user, "fabric.manage")) {
-      list.push({
-        id: "action:fabric",
-        group: "Actions",
-        label: "Add new fabric",
-        hint: "Fabric Master",
-        icon: Plus,
-        keywords: "create fabric master",
-        run: () => setDialog({ kind: "fabric", key: Date.now() }),
       });
     }
     const dark = resolvedTheme === "dark";
@@ -145,7 +132,7 @@ export function CommandMenu({ groups }: { groups: NavGroup[] }) {
         id: `fabric:${fabric.id}`,
         group: "Fabrics",
         label: fabric.name,
-        hint: `${fabric.code} · ${formatQty(fabric.balance, fabric.unit)}`,
+        hint: formatQty(fabric.balance, fabric.unit),
         icon: Layers,
         keywords: fabric.code,
         run: navigate(`/fabric/ledger?fabric=${fabric.id}`),
@@ -243,7 +230,8 @@ export function CommandMenu({ groups }: { groups: NavGroup[] }) {
             variant="outline"
             tooltip={`Search (${shortcut})`}
             onClick={() => setOpen(true)}
-            className="h-9 gap-2.5 bg-sidebar px-2.5 text-muted-foreground shadow-[0_0_0_1px_var(--sidebar-border)] hover:text-foreground"
+            // Styled like the app's inputs (card surface, input-coloured edge) so it reads as a search field against the sidebar.
+            className="h-9 gap-3 bg-card px-[11px] text-muted-foreground shadow-[0_0_0_1px_var(--input)] hover:bg-card hover:text-foreground hover:shadow-[0_0_0_1px_var(--ring)] dark:bg-input/30 dark:hover:bg-input/40"
           >
             <Search />
             <span className="flex-1">Search…</span>
@@ -365,9 +353,6 @@ export function CommandMenu({ groups }: { groups: NavGroup[] }) {
 
       {dialog?.kind === "purchase" ? (
         <InwardFormDialog key={dialog.key} open onOpenChange={(next) => (next ? undefined : setDialog(null))} />
-      ) : null}
-      {dialog?.kind === "fabric" ? (
-        <FabricFormDialog key={dialog.key} open onOpenChange={(next) => (next ? undefined : setDialog(null))} />
       ) : null}
     </>
   );

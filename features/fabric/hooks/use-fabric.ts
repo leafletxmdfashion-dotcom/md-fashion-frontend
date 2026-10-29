@@ -60,7 +60,6 @@ function useFabricMutation<TInput, TResult>(mutationFn: (input: TInput) => Promi
   });
 }
 
-export const useCreateFabric = () => useFabricMutation(fabricApi.create);
 export const useUpdateFabric = () => useFabricMutation(fabricApi.update);
 export const useAdjustStock = () => useFabricMutation(fabricApi.adjust);
 export const useCreateInward = () => useFabricMutation(fabricApi.createInward);

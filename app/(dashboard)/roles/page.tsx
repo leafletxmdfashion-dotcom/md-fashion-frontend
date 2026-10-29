@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { SizeTemplates } from "@/features/production/components/size-templates";
+import { RolesPage } from "@/features/users/components/roles-page";
 
 // Rendered only after AuthGuard confirms the session; see app/(dashboard)/users/page.tsx.
 export const instant = false;
 
-export const metadata: Metadata = { title: "Size Templates" };
+export const metadata: Metadata = { title: "Roles & Permissions" };
 
-// Client view: reads the URL (filters or id), hence the Suspense boundary.
+// The selected role lives in the query string, hence the Suspense boundary.
 export default function Page() {
   return (
     <Suspense>
-      <SizeTemplates />
+      <RolesPage />
     </Suspense>
   );
 }

@@ -31,9 +31,9 @@ export function NavUser({ user }: { user: CurrentUser }) {
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<SidebarMenuButton size="lg" className="gap-2.5 px-2 data-popup-open:bg-sidebar-accent" />}
+            render={<SidebarMenuButton size="lg" className="gap-2.5 px-1 data-popup-open:bg-sidebar-accent" />}
           >
-            <Avatar className="size-9">
+            <Avatar className="size-8">
               <AvatarFallback className="bg-primary-soft text-xs font-semibold text-link">
                 {initials(user.name)}
               </AvatarFallback>

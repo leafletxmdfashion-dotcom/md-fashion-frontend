@@ -2,7 +2,6 @@ import { api, unwrap, type ApiSuccess } from "@/lib/api-client";
 
 import type {
   Article,
-  ArticleInput,
   Batch,
   BatchPage,
   CreateLotInput,
@@ -13,7 +12,6 @@ import type {
   ListFilters,
   LotDetail,
   LotPage,
-  SizeTemplate,
   UpdateLotInput,
 } from "../types/production.types";
 
@@ -23,9 +21,7 @@ export const productionKeys = {
   lot: (id: string) => [...productionKeys.all, "lot", id] as const,
   batches: (filters: ListFilters) => [...productionKeys.all, "batches", filters] as const,
   batch: (id: string) => [...productionKeys.all, "batch", id] as const,
-  articles: (filters: ListFilters) => [...productionKeys.all, "articles", filters] as const,
   articleOptions: () => [...productionKeys.all, "article-options"] as const,
-  sizeTemplates: () => [...productionKeys.all, "size-templates"] as const,
   karigars: (filters: ListFilters) => [...productionKeys.all, "karigars", filters] as const,
   karigarOptions: (category?: string) => [...productionKeys.all, "karigar-options", category ?? "all"] as const,
 };
@@ -77,48 +73,22 @@ export const productionApi = {
     await api.delete(`/cutting-batches/${id}`);
   },
 
-  async issue(id: string): Promise<Batch> {
-    return (await unwrap(api.post<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}/issue`, undefined, POSTING))).batch;
+  /** Issues the batch's fabric; unsaved form edits sent as `cutting` are saved first, in the same request. */
+  async issue({ id, cutting }: { id: string; cutting?: CuttingDraftInput }): Promise<Batch> {
+    return (await unwrap(api.post<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}/issue`, { cutting }, POSTING))).batch;
   },
 
-  async finalize(id: string): Promise<Batch> {
-    return (await unwrap(api.post<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}/finalize`, undefined, POSTING))).batch;
+  async finalize({ id, cutting }: { id: string; cutting?: CuttingDraftInput }): Promise<Batch> {
+    return (await unwrap(api.post<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}/finalize`, { cutting }, POSTING)))
+      .batch;
   },
 
   async reverse({ id, reason }: { id: string; reason: string }): Promise<Batch> {
     return (await unwrap(api.post<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}/reverse`, { reason }, POSTING))).batch;
   },
 
-  articles(filters: ListFilters, signal?: AbortSignal): Promise<{ articles: Article[]; total: number }> {
-    return unwrap(api.get<ApiSuccess<{ articles: Article[]; total: number }>>("/articles", { params: params(filters), signal }));
-  },
-
   async articleOptions(signal?: AbortSignal): Promise<Article[]> {
     return (await unwrap(api.get<ApiSuccess<{ articles: Article[] }>>("/articles/options", { signal }))).articles;
-  },
-
-  async saveArticle({ id, ...input }: ArticleInput & { id?: string }): Promise<Article> {
-    const request = id
-      ? api.put<ApiSuccess<{ article: Article }>>(`/articles/${id}`, input)
-      : api.post<ApiSuccess<{ article: Article }>>("/articles", input);
-
-    return (await unwrap(request)).article;
-  },
-
-  async sizeTemplates(signal?: AbortSignal): Promise<SizeTemplate[]> {
-    return (await unwrap(api.get<ApiSuccess<{ templates: SizeTemplate[] }>>("/size-templates", { signal }))).templates;
-  },
-
-  async saveSizeTemplate({ id, ...input }: { id?: string; name: string; sizes: string[] }): Promise<SizeTemplate> {
-    const request = id
-      ? api.put<ApiSuccess<{ template: SizeTemplate }>>(`/size-templates/${id}`, input)
-      : api.post<ApiSuccess<{ template: SizeTemplate }>>("/size-templates", input);
-
-    return (await unwrap(request)).template;
-  },
-
-  async deleteSizeTemplate(id: string): Promise<void> {
-    await api.delete(`/size-templates/${id}`);
   },
 
   karigars(filters: ListFilters, signal?: AbortSignal): Promise<{ karigars: Karigar[]; total: number }> {

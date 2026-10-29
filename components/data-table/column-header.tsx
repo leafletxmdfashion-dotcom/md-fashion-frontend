@@ -124,7 +124,15 @@ export function ColumnHeader<T>({ column, values, sort, onSort, onFilter }: Prop
   }
 
   const apply = () => {
-    onFilter(Object.fromEntries(keys.map((key) => [key, (draft[key] ?? "").trim()])));
+    const next = Object.fromEntries(keys.map((key) => [key, (draft[key] ?? "").trim()]));
+    // Min 100 / Max 10 (or From after To) would match nothing; read it as the range the user meant.
+    if (keys.length === 2) {
+      const [low, high] = keys as [string, string];
+      const reversed =
+        column.filter?.type === "date" ? next[low]! > next[high]! : Number(next[low]) > Number(next[high]);
+      if (next[low] && next[high] && reversed) [next[low], next[high]] = [next[high]!, next[low]!];
+    }
+    onFilter(next);
     setOpen(false);
   };
   const clear = () => {
@@ -145,7 +153,7 @@ export function ColumnHeader<T>({ column, values, sort, onSort, onFilter }: Prop
           <button
             type="button"
             className={cn(
-              "group/header -mx-1.5 inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] font-semibold tracking-wider uppercase outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-accent",
+              "group/header -mx-1.5 inline-flex h-7 pointer-coarse:h-10 items-center gap-1 rounded-md px-1.5 text-[11px] font-semibold tracking-wider uppercase outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-accent",
               (sortedDir || filtered) && "text-foreground",
               column.align === "right" && "flex-row-reverse",
             )}

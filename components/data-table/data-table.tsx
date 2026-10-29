@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUrlFilters } from "@/hooks/use-url-filters";
 import { downloadCsv } from "@/lib/csv";
@@ -95,8 +95,9 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   /** Enables row checkboxes; renders bulk actions for the selection. */
   bulkActions?: (rows: T[], clear: () => void) => React.ReactNode;
-  footer?: (rows: T[]) => React.ReactNode;
   exportName?: string;
+  /** Layout for "Export selected" when it must match the server export; defaults to the columns' csv. */
+  exportColumns?: { header: string; value: (row: T) => string | number | null | undefined }[];
 }
 
 function readHidden(id: string, columns: DataColumn<unknown>[]): Set<string> {
@@ -162,8 +163,8 @@ export function DataTable<T>({
   rowActions,
   onRowClick,
   bulkActions,
-  footer,
   exportName = id,
+  exportColumns,
 }: DataTableProps<T>) {
   const [hidden, setHidden] = useState(() => readHidden(id, columns as DataColumn<unknown>[]));
   const [selected, setSelected] = useState<Map<string, T>>(new Map());
@@ -181,7 +182,6 @@ export function DataTable<T>({
 
   const visible = columns.filter((column) => !hidden.has(column.id));
   const selectable = Boolean(bulkActions);
-  const colSpan = visible.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0);
   const filterable = columns.filter((column) => column.filter);
   const sortable = columns.filter((column) => column.sortable);
 
@@ -228,11 +228,13 @@ export function DataTable<T>({
   const clearSelection = () => setSelected(new Map());
 
   const exportSelected = () => {
-    const exportable = columns.filter((column) => column.csv);
+    const layout =
+      exportColumns ??
+      columns.flatMap((column) => (column.csv ? [{ header: column.header, value: column.csv }] : []));
     downloadCsv(
       `${exportName}-selected`,
-      exportable.map((column) => column.header),
-      [...selected.values()].map((row) => exportable.map((column) => column.csv!(row) ?? null)),
+      layout.map((column) => column.header),
+      [...selected.values()].map((row) => layout.map((column) => column.value(row) ?? null)),
     );
   };
 
@@ -266,7 +268,7 @@ export function DataTable<T>({
           placeholder={searchPlaceholder}
           value={state.filters.q ?? ""}
           onChange={(q) => state.setFilters({ q })}
-          className="w-full border-transparent bg-muted shadow-none sm:w-72"
+          className="w-full border-transparent bg-muted shadow-none sm:w-80 xl:w-96"
         />
         <div className="flex items-center gap-0.5">
           <Popover
@@ -576,15 +578,6 @@ export function DataTable<T>({
               })
             )}
           </TableBody>
-          {rows && footer ? (
-            <TableFooter>
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={colSpan} className="py-2.5">
-                  {footer(rows)}
-                </TableCell>
-              </TableRow>
-            </TableFooter>
-          ) : null}
         </Table>
       )}
 

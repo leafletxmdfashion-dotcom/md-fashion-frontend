@@ -24,7 +24,9 @@ test.describe("navigation", () => {
 
     // Status stays 200: the app shell has already streamed (see Next's notFound docs).
     await page.goto("/no-such-module");
-    await expect(page.getByRole("heading", { name: "This page could not be found." })).toBeVisible();
+    await expect(page.getByText("This page could not be found")).toBeVisible();
+    await page.getByRole("link", { name: "Back to dashboard" }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
   });
 });
 

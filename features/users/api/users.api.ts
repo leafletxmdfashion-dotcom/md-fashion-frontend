@@ -1,6 +1,8 @@
 import { api, unwrap, type ApiSuccess } from "@/lib/api-client";
 
-import type { IssuedInvitation, ManagedUser, Role } from "../types/user.types";
+import type { Permission } from "@/features/auth/types/auth.types";
+
+import type { IssuedInvitation, ManagedUser, PermissionGroup, Role } from "../types/user.types";
 
 export const usersKeys = {
   all: ["users"] as const,
@@ -13,8 +15,20 @@ export const usersApi = {
     return (await unwrap(api.get<ApiSuccess<{ users: ManagedUser[] }>>("/users"))).users;
   },
 
-  async roles(): Promise<Role[]> {
-    return (await unwrap(api.get<ApiSuccess<{ roles: Role[] }>>("/roles"))).roles;
+  async roles(): Promise<{ roles: Role[]; catalog: PermissionGroup[] }> {
+    return unwrap(api.get<ApiSuccess<{ roles: Role[]; catalog: PermissionGroup[] }>>("/roles"));
+  },
+
+  async createRole(input: { name: string; permissions: Permission[] }): Promise<Role> {
+    return (await unwrap(api.post<ApiSuccess<{ role: Role }>>("/roles", input))).role;
+  },
+
+  async updateRole({ key, ...input }: { key: string; name?: string; permissions: Permission[] }): Promise<Role> {
+    return (await unwrap(api.put<ApiSuccess<{ role: Role }>>(`/roles/${key}`, input))).role;
+  },
+
+  async deleteRole(key: string): Promise<void> {
+    await api.delete(`/roles/${key}`);
   },
 
   async invite(input: { email: string; name: string; roleKey: string }): Promise<IssuedInvitation> {

@@ -36,7 +36,7 @@ test.describe("authentication", () => {
     await expect(page).toHaveURL(/\/dashboard$/);
 
     const sidebar = page.locator("[data-sidebar=sidebar]").first();
-    await expect(sidebar.getByRole("link", { name: "Fabric Master" })).toBeVisible();
+    await expect(sidebar.getByRole("link", { name: "Purchase / Inward" })).toBeVisible();
     await expect(sidebar.getByRole("link", { name: "Users" })).toHaveCount(0);
     await expect(sidebar.getByRole("link", { name: "Settings" })).toHaveCount(0);
 
@@ -105,7 +105,7 @@ test.describe("authentication", () => {
     await dialog.getByLabel("Email").fill("new.hire@garment.test");
     await dialog.getByLabel("Name").fill("Nia New");
     await dialog.getByLabel("Role").click();
-    await page.getByRole("option", { name: "Staff" }).click();
+    await page.getByRole("option", { name: "Staff", exact: true }).click();
     await dialog.getByRole("button", { name: "Send invitation" }).click();
     const inviteUrl = await dialog.getByLabel("Invitation link", { exact: true }).inputValue();
     expect(inviteUrl).toMatch(/\/accept-invitation#token=/);

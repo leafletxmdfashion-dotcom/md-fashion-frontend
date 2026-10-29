@@ -6,26 +6,19 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DetailList, DetailRow, DetailSection, DetailStats } from "@/components/detail-list";
 import { Field } from "@/components/form/field";
 import { FormAlert } from "@/components/form/form-alert";
-import { Badge } from "@/components/ui/badge";
+import { StatusChip } from "@/components/status-chip";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { useSingleSubmit } from "@/hooks/use-single-submit";
 import { ApiError } from "@/lib/api-client";
 
 import { useReverseInward } from "../hooks/use-fabric";
 import { formatDate, formatMoney, formatQty, inwardNumber, UNIT_LABEL } from "../lib/format";
 import type { Inward } from "../types/fabric.types";
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[8rem_1fr] gap-3 py-2">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 break-words">{children ?? <span className="text-muted-foreground">—</span>}</dd>
-    </div>
-  );
-}
 
 export function InwardDetailSheet({
   inward,
@@ -37,6 +30,7 @@ export function InwardDetailSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const reverse = useReverseInward();
+  const single = useSingleSubmit();
   const [reversing, setReversing] = useState(false);
   const [reason, setReason] = useState("");
 
@@ -51,16 +45,19 @@ export function InwardDetailSheet({
 
   const onReverse = () => {
     if (!inward) return;
-    reverse.mutate(
-      { id: inward.id, reason: reason.trim() },
-      {
-        onSuccess: () => {
-          toast.success(
-            `${inwardNumber(inward.number)} reversed. Stock reduced by ${formatQty(inward.quantity, inward.fabric.unit)}.`,
-          );
-          close(false);
+    single((release) =>
+      reverse.mutate(
+        { id: inward.id, reason: reason.trim() },
+        {
+          onSuccess: () => {
+            toast.success(
+              `${inwardNumber(inward.number)} reversed. Stock reduced by ${formatQty(inward.quantity, inward.fabric.unit)}.`,
+            );
+            close(false);
+          },
+          onSettled: release,
         },
-      },
+      ),
     );
   };
 
@@ -68,69 +65,53 @@ export function InwardDetailSheet({
 
   return (
     <Sheet open={inward !== null} onOpenChange={close}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent>
         {inward ? (
           <>
             <SheetHeader>
               <div className="flex items-center gap-2">
-                <SheetTitle className="font-mono">{inwardNumber(inward.number)}</SheetTitle>
-                {inward.reversal ? <Badge variant="destructive">Reversed</Badge> : null}
+                <span className="font-mono text-xs text-muted-foreground">{inwardNumber(inward.number)}</span>
+                {inward.reversal ? (
+                  <StatusChip tone="danger">Reversed</StatusChip>
+                ) : (
+                  <StatusChip tone="success">Posted</StatusChip>
+                )}
               </div>
+              <SheetTitle>{inward.fabric.name}</SheetTitle>
               <SheetDescription>
-                Purchase of {inward.fabric.name} on {formatDate(inward.inwardDate)}
+                Purchased on {formatDate(inward.inwardDate)}
+                {inward.supplier ? ` from ${inward.supplier}` : ""}
               </SheetDescription>
+              {canReverse && !inward.reversal && !reversing ? (
+                <div className="mt-3 flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setReversing(true)}>
+                    <Undo2 aria-hidden />
+                    Reverse purchase
+                  </Button>
+                </div>
+              ) : null}
             </SheetHeader>
 
-            <div className="px-4">
-              <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/40 p-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">Quantity</p>
-                  <p className="text-base font-semibold tabular-nums">
-                    {formatQty(inward.quantity, inward.fabric.unit)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Amount</p>
-                  <p className="text-base font-semibold tabular-nums">{formatMoney(inward.amount)}</p>
-                </div>
-              </div>
-
-              <dl className="mt-2 divide-y text-[13px]">
-                <Row label="Fabric">
-                  <Link href={`/fabric/ledger?fabric=${inward.fabric.id}`} className="text-link hover:underline">
-                    {inward.fabric.name}
-                  </Link>{" "}
-                  <span className="text-muted-foreground">{inward.fabric.code}</span>
-                </Row>
-                <Row label="Rate">
-                  {formatMoney(inward.rate)} / {UNIT_LABEL[inward.fabric.unit]}
-                </Row>
-                <Row label="Supplier">{inward.supplier}</Row>
-                <Row label="Invoice / bill">{inward.invoiceRef}</Row>
-                <Row label="Notes">{inward.notes}</Row>
-                <Row label="Posted by">
-                  {inward.createdBy ?? "—"}
-                  <span className="text-muted-foreground">
-                    {" "}
-                    · {format(new Date(inward.createdAt), "d MMM yyyy, h:mm a")}
-                  </span>
-                </Row>
-                {inward.reversal ? (
-                  <>
-                    <Row label="Reversed by">
-                      {inward.reversal.by ?? "—"}
-                      <span className="text-muted-foreground">
-                        {" "}
-                        · {format(new Date(inward.reversal.at), "d MMM yyyy, h:mm a")}
-                      </span>
-                    </Row>
-                    <Row label="Reason">{inward.reversal.reason}</Row>
-                  </>
-                ) : null}
-              </dl>
+            <SheetBody className="grid content-start gap-6">
+              <DetailStats
+                items={[
+                  { label: "Quantity", value: formatQty(inward.quantity, inward.fabric.unit) },
+                  // Rate and amount are null for users without costing.view.
+                  ...(inward.rate != null && inward.amount != null
+                    ? [
+                        { label: "Rate", value: `${formatMoney(inward.rate)} / ${UNIT_LABEL[inward.fabric.unit]}` },
+                        {
+                          label: "Amount",
+                          value: formatMoney(inward.amount),
+                          tone: inward.reversal ? ("muted" as const) : undefined,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
 
               {reversing ? (
-                <div className="mt-4 grid gap-3 rounded-lg border border-destructive/30 p-3">
+                <div className="grid gap-3 rounded-lg border border-destructive/30 bg-destructive-soft/40 p-4">
                   <p className="text-[13px]">
                     Reversing posts an equal stock-out of {formatQty(inward.quantity, inward.fabric.unit)}. The purchase
                     stays on record, marked reversed.
@@ -166,16 +147,37 @@ export function InwardDetailSheet({
                   </div>
                 </div>
               ) : null}
-            </div>
 
-            {canReverse && !inward.reversal && !reversing ? (
-              <SheetFooter>
-                <Button variant="outline" onClick={() => setReversing(true)}>
-                  <Undo2 aria-hidden />
-                  Reverse purchase
-                </Button>
-              </SheetFooter>
-            ) : null}
+              <DetailSection title="Purchase">
+                <DetailList>
+                  <DetailRow label="Fabric">
+                    <Link href={`/fabric/ledger?fabric=${inward.fabric.id}`} className="text-link hover:underline">
+                      {inward.fabric.name}
+                    </Link>
+                    <span className="ml-1.5 font-mono text-xs text-muted-foreground">{inward.fabric.code}</span>
+                  </DetailRow>
+                  <DetailRow label="Supplier">{inward.supplier}</DetailRow>
+                  <DetailRow label="Invoice / bill">{inward.invoiceRef}</DetailRow>
+                  <DetailRow label="Notes">{inward.notes}</DetailRow>
+                </DetailList>
+              </DetailSection>
+
+              <DetailSection title="Record">
+                <DetailList>
+                  <DetailRow label="Posted by">{inward.createdBy}</DetailRow>
+                  <DetailRow label="Posted at">{format(new Date(inward.createdAt), "d MMM yyyy, h:mm a")}</DetailRow>
+                  {inward.reversal ? (
+                    <>
+                      <DetailRow label="Reversed by">{inward.reversal.by}</DetailRow>
+                      <DetailRow label="Reversed at">
+                        {format(new Date(inward.reversal.at), "d MMM yyyy, h:mm a")}
+                      </DetailRow>
+                      <DetailRow label="Reason">{inward.reversal.reason}</DetailRow>
+                    </>
+                  ) : null}
+                </DetailList>
+              </DetailSection>
+            </SheetBody>
           </>
         ) : null}
       </SheetContent>

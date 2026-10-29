@@ -59,7 +59,7 @@ export function UserRowActions({ user, roles }: { user: ManagedUser; roles: Role
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          render={<Button variant="ghost" size="icon-xs" aria-label={`Actions for ${user.name}`} />}
+          render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${user.name}`} />}
         >
           <MoreHorizontal aria-hidden />
         </DropdownMenuTrigger>

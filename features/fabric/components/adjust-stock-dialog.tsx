@@ -22,13 +22,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { applyServerError } from "@/lib/form-errors";
 import { cn } from "@/lib/utils";
 
-import { useAdjustStock } from "../hooks/use-fabric";
-import { formatQty, UNIT_LABEL } from "../lib/format";
-import type { Fabric } from "../types/fabric.types";
+import { useAdjustStock, useFabricOptions } from "../hooks/use-fabric";
+import { formatQty, hasPlaces, UNIT_LABEL } from "../lib/format";
+import { FabricCombobox } from "./fabric-combobox";
 
 const schema = z.object({
+  fabricId: z.string().min(1, "Choose the fabric."),
   direction: z.enum(["IN", "OUT"]),
-  quantity: z.number({ invalid_type_error: "Enter a quantity." }).positive("Quantity must be more than zero."),
+  quantity: z
+    .number({ invalid_type_error: "Enter a quantity." })
+    .positive("Quantity must be more than zero.")
+    .refine((value) => hasPlaces(value, 3), "Use at most 3 decimals for quantity."),
   reason: z.string().trim().min(3, "Give a reason (at least 3 characters).").max(500),
 });
 
@@ -39,29 +43,41 @@ const DIRECTIONS = [
   { value: "OUT", label: "Reduce", icon: Minus },
 ] as const;
 
+/** Physical-count corrections. Opened for one fabric, or with a picker when `fabricId` is not given. */
 export function AdjustStockDialog({
-  fabric,
+  fabricId: presetId = "",
   open,
   onOpenChange,
 }: {
-  fabric: Fabric;
+  fabricId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const fabrics = useFabricOptions();
   const adjust = useAdjustStock();
+
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { direction: "OUT", reason: "" },
+    defaultValues: { fabricId: presetId, direction: "OUT", reason: "" },
   });
-  const { errors, isSubmitting } = form.formState;
-  const [direction, quantity] = useWatch({ control: form.control, name: ["direction", "quantity"] });
-  const delta = Number.isFinite(quantity) && quantity > 0 ? (direction === "IN" ? quantity : -quantity) : 0;
-  const after = fabric.balance + delta;
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const { errors, isSubmitting } = form.formState;
+
+  const [fabricId, direction, quantity] = useWatch({
+    control: form.control,
+    name: ["fabricId", "direction", "quantity"],
+  });
+
+  const fabric = fabrics.data?.find((option) => option.id === fabricId);
+  const delta = Number.isFinite(quantity) && quantity > 0 ? (direction === "IN" ? quantity : -quantity) : 0;
+  const after = fabric ? fabric.balance + delta : 0;
+
+  const onSubmit = form.handleSubmit(async ({ fabricId: id, ...values }) => {
     try {
-      await adjust.mutateAsync({ fabricId: fabric.id, ...values });
-      toast.success(`Stock adjusted. ${fabric.name} is now ${formatQty(after, fabric.unit)}.`);
+      await adjust.mutateAsync({ fabricId: id, ...values });
+      toast.success(
+        `Stock adjusted. ${fabric?.name ?? "The fabric"} is now ${fabric ? formatQty(after, fabric.unit) : "updated"}.`,
+      );
       onOpenChange(false);
     } catch (error) {
       applyServerError(error, form);
@@ -74,13 +90,29 @@ export function AdjustStockDialog({
         <DialogHeader>
           <DialogTitle>Adjust stock</DialogTitle>
           <DialogDescription>
-            {fabric.name} · {fabric.code}. Use this for physical-count corrections. It is recorded in the ledger with
-            your reason.
+            For physical-count corrections. Recorded in the fabric&apos;s ledger with your reason.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={onSubmit} noValidate className="grid gap-4">
           {errors.root?.server ? <FormAlert>{errors.root.server.message}</FormAlert> : null}
+
+          <Field id="adjust-fabric" label="Fabric" error={errors.fabricId?.message}>
+            <Controller
+              control={form.control}
+              name="fabricId"
+              render={({ field }) => (
+                <FabricCombobox
+                  id="adjust-fabric"
+                  fabrics={fabrics.data ?? []}
+                  value={field.value}
+                  onChange={field.onChange}
+                  invalid={Boolean(errors.fabricId)}
+                  placeholder="Search fabric"
+                />
+              )}
+            />
+          </Field>
 
           <Controller
             control={form.control}
@@ -115,33 +147,43 @@ export function AdjustStockDialog({
                 inputMode="decimal"
                 min={0}
                 step="any"
-                autoFocus
+                placeholder="e.g. 5"
+                autoFocus={Boolean(presetId)}
                 {...form.register("quantity", { valueAsNumber: true })}
               />
-              <InputGroupAddon align="inline-end">
-                <InputGroupText>{UNIT_LABEL[fabric.unit]}</InputGroupText>
-              </InputGroupAddon>
+              {fabric ? (
+                <InputGroupAddon align="inline-end">
+                  <InputGroupText>{UNIT_LABEL[fabric.unit]}</InputGroupText>
+                </InputGroupAddon>
+              ) : null}
             </InputGroup>
           </Field>
 
-          <dl className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/40 px-3 py-2.5 text-[13px]">
-            <div>
-              <dt className="text-xs text-muted-foreground">Current stock</dt>
-              <dd className="font-medium tabular-nums">{formatQty(fabric.balance, fabric.unit)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">After adjustment</dt>
-              <dd className={cn("font-medium tabular-nums", after < 0 && "text-destructive")}>
-                {formatQty(after, fabric.unit)}
-              </dd>
-            </div>
-          </dl>
+          {fabric ? (
+            <dl className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/40 px-3 py-2.5 text-[13px]">
+              <div>
+                <dt className="text-xs text-muted-foreground">Current stock</dt>
+                <dd className="font-medium tabular-nums">{formatQty(fabric.balance, fabric.unit)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">After adjustment</dt>
+                <dd className={cn("font-medium tabular-nums", after < 0 && "text-destructive")}>
+                  {formatQty(after, fabric.unit)}
+                </dd>
+              </div>
+              {after < 0 ? (
+                <p className="col-span-2 text-xs text-destructive" role="alert">
+                  Only {formatQty(fabric.balance, fabric.unit)} is in stock, so you can reduce by at most that.
+                </p>
+              ) : null}
+            </dl>
+          ) : null}
 
           <Field id="adjust-reason" label="Reason" error={errors.reason?.message}>
             <Textarea
               {...fieldProps("adjust-reason", errors.reason?.message)}
               rows={2}
-              placeholder="Physical count after godown audit"
+              placeholder="e.g. Physical count after godown audit"
               {...form.register("reason")}
             />
           </Field>

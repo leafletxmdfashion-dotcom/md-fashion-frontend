@@ -2,55 +2,49 @@ import { expect, test } from "@playwright/test";
 
 import { login } from "./helpers";
 
-test("fabric master, purchase, adjustment, ledger and reversal work end to end", async ({ page }) => {
+test("add purchase by fabric name, adjustment, ledger and reversal work end to end", async ({ page }) => {
   await page.goto("/login");
   await login(page, "owner@garment.test");
   await expect(page).toHaveURL(/\/dashboard$/);
 
-  // Fabric master: create.
-  await page.goto("/fabric");
-  await page.getByRole("button", { name: "New fabric" }).first().click();
-  const fabricForm = page.getByRole("dialog");
-  await fabricForm.getByLabel("Name").fill("Cotton Jersey");
-  await fabricForm.getByLabel("Code").fill("fb-ctj");
-  await fabricForm.getByLabel("Unit").click();
-  await page.getByRole("option", { name: "Kilogram" }).click();
-  await fabricForm.getByLabel("Reorder level").fill("50");
-  await fabricForm.getByRole("button", { name: "Add fabric" }).click();
-  await expect(fabricForm).toBeHidden();
-  const row = page.getByRole("row", { name: /Cotton Jersey/ });
-  await expect(row).toContainText("FB-CTJ");
-  await expect(row).toContainText("0 kg");
-
-  // Two purchases on one invoice, one entry each.
-  await row.getByRole("button", { name: "Row actions" }).click();
-  await page.getByRole("menuitem", { name: "Record purchase" }).click();
-  const purchase = page.getByRole("dialog");
+  // A first purchase names a new fabric: it is created with a generated code.
+  await page.goto("/fabric/purchases");
+  await page.getByRole("button", { name: "Add purchase" }).first().click();
+  const purchase = page.getByRole("dialog", { name: "Add purchase" });
+  await purchase.getByLabel("Fabric name").fill("Cotton Jersey");
+  await expect(purchase.getByText("New fabric · its code is assigned when you save")).toBeVisible();
+  await expect(purchase.getByLabel("Fabric description")).toHaveCount(0);
   await purchase.getByLabel("Quantity").fill("120");
   await purchase.getByLabel("Rate").fill("450");
+  await purchase.getByLabel("Reorder level").fill("50");
   await purchase.getByLabel("Supplier").fill("Sunrise Knits");
   await purchase.getByLabel("Invoice / bill no.").fill("INV-2401");
   await expect(purchase.getByText("Rs 54,000.00")).toBeVisible();
-  await purchase.getByRole("button", { name: "Post purchase" }).click();
-  await expect(page.getByText("FI-0001 posted")).toBeVisible();
+  await purchase.getByRole("button", { name: "Add purchase" }).click();
+  await expect(page.getByText(/FI-0001 added: 120 kg of Cotton Jersey \(new fabric FAB-\d{4}\)/)).toBeVisible();
   await expect(purchase).toBeHidden();
-  await expect(row).toContainText("120 kg");
 
-  await row.getByRole("button", { name: "Row actions" }).click();
-  await page.getByRole("menuitem", { name: "Record purchase" }).click();
+  // The same name in another case is the same fabric: its unit and reorder level come along.
+  await page.getByRole("button", { name: "Add purchase" }).first().click();
+  await purchase.getByLabel("Fabric name").fill("cotton jers");
+  await page.getByRole("option", { name: "Cotton Jersey" }).click();
+  await expect(purchase.getByText(/Existing fabric · FAB-\d{4} · 120 kg in stock/)).toBeVisible();
+  await expect(purchase.getByLabel("Reorder level")).toHaveValue("50");
+  await expect(purchase.getByRole("radio", { name: "Meter" })).toBeDisabled();
   await purchase.getByLabel("Quantity").fill("40");
   await purchase.getByLabel("Rate").fill("450");
-  await purchase.getByLabel("Supplier").fill("Sunrise Knits");
-  await purchase.getByLabel("Invoice / bill no.").fill("INV-2401");
-  await purchase.getByRole("button", { name: "Post purchase" }).click();
+  await purchase.getByRole("button", { name: "Add purchase" }).click();
   await expect(purchase).toBeHidden();
-  await expect(row).toContainText("160 kg");
-  await expect(row).toContainText("Rs 72,000.00");
+  const rows = page.getByRole("row").filter({ hasText: "Cotton Jersey" });
+  await expect(rows).toHaveCount(2);
 
-  // Adjustment cannot exceed stock.
-  await row.getByRole("button", { name: "Row actions" }).click();
-  await page.getByRole("menuitem", { name: "Adjust stock" }).click();
-  const adjust = page.getByRole("dialog");
+  // Adjustments live on this page too, and cannot exceed stock.
+  await page.getByRole("button", { name: "Adjust stock" }).click();
+  const adjust = page.getByRole("dialog", { name: "Adjust stock" });
+  await adjust.getByLabel("Fabric", { exact: true }).click();
+  await adjust.getByLabel("Fabric", { exact: true }).fill("Cotton");
+  await page.getByRole("option", { name: /Cotton Jersey/ }).click();
+  await expect(adjust).toContainText("160 kg");
   await adjust.getByLabel("Quantity").fill("200");
   await adjust.getByLabel("Reason").fill("Damaged during handling");
   await adjust.getByRole("button", { name: "Post adjustment" }).click();
@@ -58,10 +52,10 @@ test("fabric master, purchase, adjustment, ledger and reversal work end to end",
   await adjust.getByLabel("Quantity").fill("10");
   await adjust.getByRole("button", { name: "Post adjustment" }).click();
   await expect(adjust).toBeHidden();
-  await expect(row).toContainText("150 kg");
 
   // Ledger for the fabric, newest first with running balance.
-  await row.getByRole("link", { name: "Cotton Jersey" }).click();
+  await rows.first().getByRole("button", { name: "Row actions" }).click();
+  await page.getByRole("menuitem", { name: "Open fabric ledger" }).click();
   await expect(page).toHaveURL(/\/fabric\/ledger\?fabric=/);
   const ledgerRows = page.getByRole("row").filter({ hasText: /Purchase|Adjustment/ });
   await expect(ledgerRows).toHaveCount(3);
@@ -70,7 +64,7 @@ test("fabric master, purchase, adjustment, ledger and reversal work end to end",
   const fabricStats = page.getByLabel(/Movement summary/);
   await expect(fabricStats).toContainText("In stock now");
   await expect(fabricStats).toContainText("150 kg");
-  // No duplicate action card here: adjust and purchase live in Fabric Master and Purchases.
+  // No duplicate action card here: adjust and purchase live on Purchase / Inward.
   await expect(page.getByRole("button", { name: "Adjust stock" })).toHaveCount(0);
 
   // All fabrics: activity and stock value.
@@ -80,34 +74,74 @@ test("fabric master, purchase, adjustment, ledger and reversal work end to end",
   await expect(allStats).toContainText("+160 kg");
   await expect(allStats).toContainText("−10 kg");
 
-  // Reverse the second roll from the purchase register.
+  // Reverse the second purchase from the register.
   await page.goto("/fabric/purchases");
   await page.getByLabel("Search purchases").fill("FI-0002");
-  await expect(page.getByRole("row").filter({ hasText: "Cotton Jersey" })).toHaveCount(1);
-  await page.getByRole("row").filter({ hasText: "Cotton Jersey" }).click();
+  await expect(rows).toHaveCount(1);
+  await rows.click();
   const sheet = page.getByRole("dialog");
   await expect(sheet).toContainText("FI-0002");
   await sheet.getByRole("button", { name: "Reverse purchase" }).click();
   await sheet.getByLabel("Reason").fill("Wrong roll entered");
   await sheet.getByRole("button", { name: "Reverse purchase" }).click();
   await expect(page.getByText("FI-0002 reversed")).toBeVisible();
-  await expect(page.getByRole("row").filter({ hasText: "Cotton Jersey" })).toContainText("Reversed");
+  await expect(rows).toContainText("Reversed");
 
+  // The old Fabric Master address now opens Stock & Ledger.
   await page.goto("/fabric");
-  await expect(page.getByRole("row", { name: /Cotton Jersey/ })).toContainText("110 kg");
+  await expect(page).toHaveURL(/\/fabric\/ledger$/);
+  await page.getByLabel("Fabric", { exact: true }).click();
+  await page.getByLabel("Fabric", { exact: true }).fill("Cotton");
+  await page.getByRole("option", { name: /Cotton Jersey/ }).click();
+  await expect(page.getByLabel(/Movement summary/)).toContainText("110 kg");
 });
 
-test("staff can record purchases but not manage fabrics", async ({ page }) => {
+test("a misspelt fabric is renamed from the ledger, and later purchases of the right name add to it", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await login(page, "owner@garment.test");
+  await expect(page).toHaveURL(/\/dashboard$/);
+
+  await page.goto("/fabric/purchases");
+  await page.getByRole("button", { name: "Add purchase" }).first().click();
+  const purchase = page.getByRole("dialog", { name: "Add purchase" });
+  await purchase.getByLabel("Fabric name").fill("Lycra Jersy");
+  await purchase.getByLabel("Quantity").fill("20");
+  await purchase.getByLabel("Rate").fill("300");
+  await purchase.getByRole("button", { name: "Add purchase" }).click();
+  await expect(purchase).toBeHidden();
+
+  const row = page.getByRole("row").filter({ hasText: "Lycra Jersy" });
+  await row.getByRole("button", { name: "Row actions" }).click();
+  await page.getByRole("menuitem", { name: "Open fabric ledger" }).click();
+  await page.getByRole("button", { name: "Edit fabric" }).click();
+  const edit = page.getByRole("dialog", { name: "Edit fabric" });
+  await expect(edit.getByRole("radio", { name: "Meter" })).toBeDisabled();
+  await edit.getByLabel("Fabric name").fill("Lycra Jersey");
+  await edit.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Lycra Jersey updated.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lycra Jersey" })).toBeVisible();
+
+  await page.goto("/fabric/purchases");
+  await page.getByRole("button", { name: "Add purchase" }).first().click();
+  await purchase.getByLabel("Fabric name").fill("lycra jersey");
+  await expect(purchase.getByText(/Existing fabric · FAB-\d{4} · 20 kg in stock/)).toBeVisible();
+});
+
+test("staff can add purchases but not adjust stock", async ({ page }) => {
   await page.goto("/login");
   await login(page, "staff@garment.test");
   await expect(page).toHaveURL(/\/dashboard$/);
 
-  await page.goto("/fabric");
-  await expect(page.getByRole("searchbox", { name: "Search fabrics" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "New fabric" })).toHaveCount(0);
-
   await page.goto("/fabric/purchases");
-  await expect(page.getByRole("button", { name: "Record purchase" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add purchase" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Adjust stock" })).toHaveCount(0);
+  await page.goto("/fabric/ledger");
+  await page.getByLabel("Fabric", { exact: true }).click();
+  await page.getByRole("option").first().click();
+  await expect(page.getByLabel(/Movement summary/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit fabric" })).toHaveCount(0);
 });
 
 test("purchase register pages, resizes, searches and keeps filters in the URL", async ({ page }) => {
@@ -125,11 +159,11 @@ test("purchase register pages, resizes, searches and keeps filters in the URL", 
           body: JSON.stringify(body),
         })
       ).json()) as { data: { fabric: { id: string } } };
-    const fabric = (await post("/api/v1/fabrics", { name: "Paging Rib", code: "PG-RIB", unit: "KG" })).data.fabric;
     const today = new Date().toISOString().slice(0, 10);
     for (let index = 1; index <= 30; index += 1) {
       await post("/api/v1/fabrics/inwards", {
-        fabricId: fabric.id,
+        fabricName: "Paging Rib",
+        unit: "KG",
         inwardDate: today,
         quantity: index,
         rate: 10,
@@ -173,80 +207,14 @@ test("the command palette finds pages and fabrics and runs actions", async ({ pa
   await expect(page).toHaveURL(/\/fabric\/ledger$/);
 
   await page.keyboard.press("Control+k");
-  await palette.getByRole("combobox").fill("pg-rib");
+  await palette.getByRole("combobox").fill("paging");
   await expect(palette.getByRole("option", { name: /Paging Rib/ })).toBeVisible();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/fabric\/ledger\?fabric=/);
   await expect(page.getByRole("heading", { name: "Paging Rib" })).toBeVisible();
 
   await page.keyboard.press("Control+k");
-  await palette.getByRole("combobox").fill("record");
+  await palette.getByRole("combobox").fill("add fabric purchase");
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("dialog", { name: "Record purchase" })).toBeVisible();
-});
-
-test("column filters, sorting and export work on Fabric Master; no deactivate", async ({ page }) => {
-  await page.goto("/login");
-  await login(page, "owner@garment.test");
-  await expect(page).toHaveURL(/\/dashboard$/);
-
-  await page.evaluate(async () => {
-    const csrf = ((await (await fetch("/api/v1/auth/csrf")).json()) as { data: { csrfToken: string } }).data.csrfToken;
-    for (const [code, name] of [
-      ["BK-1", "Bulk Twill"],
-      ["BK-2", "Bulk Poplin"],
-      ["BK-3", "Bulk Rib"],
-    ]) {
-      await fetch("/api/v1/fabrics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
-        body: JSON.stringify({ code, name, unit: "METER" }),
-      });
-    }
-  });
-
-  await page.goto("/fabric?q=bulk");
-  const rows = page.getByRole("row").filter({ hasText: "Bulk" });
-  await expect(rows).toHaveCount(3);
-
-  // The add form has no category field.
-  await page.getByRole("button", { name: "New fabric" }).click();
-  await expect(page.getByRole("dialog").getByLabel(/Category/)).toHaveCount(0);
-  await page.keyboard.press("Escape");
-
-  // Header filter: Fabric contains "poplin".
-  await page.getByRole("button", { name: /^Fabric: sort and filter/ }).click();
-  await page.getByRole("textbox", { name: "Fabric contains" }).fill("poplin");
-  await page.getByRole("button", { name: "Apply" }).click();
-  await expect(page.getByRole("button", { name: "Apply" })).toBeHidden();
-  await expect(page).toHaveURL(/fabric=poplin/);
-  await expect(rows).toHaveCount(1);
-  await page.goto("/fabric?q=bulk");
-
-  // Header sort: Fabric Z to A.
-  await page.getByRole("button", { name: /^Fabric: sort and filter/ }).click();
-  await page.getByRole("button", { name: "Z to A" }).click();
-  await expect(page).toHaveURL(/sort=fabric&dir=desc/);
-  await expect(rows.first()).toContainText("Bulk Twill");
-
-  // Selection only exports; there are no bulk status actions.
-  await page.getByRole("checkbox", { name: "Select all rows on this page" }).click();
-  const bar = page.getByRole("toolbar", { name: "Selected rows" });
-  await expect(bar).toContainText("Selected: 3");
-  await expect(bar.getByRole("button", { name: "Deactivate" })).toHaveCount(0);
-  const download = page.waitForEvent("download");
-  await bar.getByRole("button", { name: "Export" }).click();
-  expect((await download).suggestedFilename()).toMatch(/^fabrics-selected-\d{4}-\d{2}-\d{2}\.csv$/);
-  await bar.getByRole("button", { name: "Discard" }).click();
-
-  // Fabrics cannot be deactivated: the row menu has no such action.
-  await rows.filter({ hasText: "Bulk Rib" }).getByRole("button", { name: "Row actions" }).click();
-  await expect(page.getByRole("menuitem", { name: "Edit details" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: /Deactivate|Reactivate/ })).toHaveCount(0);
-  await page.keyboard.press("Escape");
-
-  // Server export of the filtered list.
-  const serverExport = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export", exact: true }).click();
-  expect((await serverExport).suggestedFilename()).toMatch(/^fabrics-\d{4}-\d{2}-\d{2}\.csv$/);
+  await expect(page.getByRole("dialog", { name: "Add purchase" })).toBeVisible();
 });

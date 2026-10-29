@@ -1,32 +1,30 @@
 import { todayISO } from "@/features/fabric/lib/format";
 
-import type {
-  Batch,
-  CuttingDraftInput,
-  MarkerDefaults,
-  RollStatus,
-  WeightSource,
-} from "../types/production.types";
-import type { ColourInput, MarkerInput } from "./cutting-calc";
+import type { Batch, CuttingDraftInput, MarkerDefaults, RollStatus, WeightSource } from "../types/production.types";
+import type { BatchResult, ColourInput, Issue, MarkerInput, RollResult } from "./cutting-calc";
 
 // The production form keeps every input as text (what the operator typed), so the
 // calculator and the API both read exactly what is on screen. Ids are named
-// colourId / rollId because react-hook-form reserves `id` on field-array items.
+// rollId / colourId because react-hook-form reserves `id` on field-array items.
+//
+// On screen every Thaan is one row with its colour; the calculator and the API take
+// colours with their Thaan, so rows are grouped by colour name (any case) on the way out.
 
 export interface RollValues {
   rollId: string;
+  /** The saved colour this Thaan was under; issued Thaan stay under it. */
+  colourId: string;
   status: RollStatus;
+  colour: string;
+  /** Kept for saved Thaan only; the API numbers new ones. */
   thaan: string;
   issuedKg: string;
+  /** Empty means "work it out" (see calculateRoll). */
   returnedKg: string;
   /** Empty means "use the estimate". */
   confirmedLayers: string;
-}
-
-export interface ColourValues {
-  colourId: string;
-  name: string;
-  rolls: RollValues[];
+  /** Optional: why the typed Pala differ from the estimate. */
+  note: string;
 }
 
 export interface SizeValues {
@@ -49,31 +47,35 @@ export interface CuttingFormValues {
   lotNumber: string;
   articleName: string;
   fabricId: string;
-  targetQuantity: string;
-  lotNotes: string;
   cuttingMasterId: string;
   cuttingDate: string;
   notes: string;
   marker: MarkerValues;
   sizes: SizeValues[];
-  colours: ColourValues[];
+  rolls: RollValues[];
   saveAsDefault: boolean;
 }
 
-const text = (value: string | number | null | undefined) => (value === null || value === undefined ? "" : String(value));
+const text = (value: string | number | null | undefined) =>
+  value === null || value === undefined ? "" : String(value);
 
-export const emptyRoll = (): RollValues => ({
+export const emptyRoll = (colour = ""): RollValues => ({
   rollId: "",
+  colourId: "",
   status: "DRAFT",
+  colour,
   thaan: "",
   issuedKg: "",
   returnedKg: "",
   confirmedLayers: "",
+  note: "",
 });
 
-export const emptyColour = (): ColourValues => ({ colourId: "", name: "", rolls: [emptyRoll()] });
-
-const DEFAULT_SIZES: SizeValues[] = ["S", "M", "L", "XL"].map((label) => ({ label, piecesPerPala: "1", pieceWeightG: "" }));
+const DEFAULT_SIZES: SizeValues[] = ["S", "M", "L", "XL"].map((label) => ({
+  label,
+  piecesPerPala: "1",
+  pieceWeightG: "",
+}));
 
 export function markerValuesOf(marker: Omit<MarkerDefaults, "sizes"> | null): MarkerValues {
   return {
@@ -81,14 +83,20 @@ export function markerValuesOf(marker: Omit<MarkerDefaults, "sizes"> | null): Ma
     lengthM: text(marker?.lengthM),
     gsm: text(marker?.gsm),
     measuredPalaKg: text(marker?.measuredPalaKg),
-    weightSource: marker?.weightSource ?? "MEASURED",
+    // The Calculated (GSM) option is hidden; every new or reopened marker is weighed. The API still
+    // accepts CALCULATED, so older finalized cutting keeps showing its calculated weight.
+    weightSource: "MEASURED",
     repetitionsPerLayer: text(marker?.repetitionsPerLayer ?? 1),
   };
 }
 
 export function sizeValuesOf(sizes: MarkerDefaults["sizes"] | undefined): SizeValues[] {
   return sizes?.length
-    ? sizes.map((size) => ({ label: size.label, piecesPerPala: String(size.piecesPerPala), pieceWeightG: text(size.pieceWeightG) }))
+    ? sizes.map((size) => ({
+        label: size.label,
+        piecesPerPala: String(size.piecesPerPala),
+        pieceWeightG: text(size.pieceWeightG),
+      }))
     : DEFAULT_SIZES;
 }
 
@@ -97,14 +105,12 @@ export function newProductionValues(): CuttingFormValues {
     lotNumber: "",
     articleName: "",
     fabricId: "",
-    targetQuantity: "",
-    lotNotes: "",
     cuttingMasterId: "",
     cuttingDate: todayISO(),
     notes: "",
     marker: markerValuesOf(null),
     sizes: DEFAULT_SIZES,
-    colours: [emptyColour()],
+    rolls: [emptyRoll()],
     saveAsDefault: false,
   };
 }
@@ -114,26 +120,100 @@ export function batchValues(batch: Batch): CuttingFormValues {
     lotNumber: batch.lot.lotNumber,
     articleName: batch.lot.article.name,
     fabricId: batch.lot.fabric.id,
-    targetQuantity: text(batch.lot.targetQuantity),
-    lotNotes: "",
     cuttingMasterId: batch.cuttingMaster?.id ?? "",
     cuttingDate: batch.cuttingDate,
     notes: batch.notes ?? "",
     marker: markerValuesOf(batch.marker),
     sizes: sizeValuesOf(batch.sizes),
-    colours: batch.colours.map((colour) => ({
-      colourId: colour.id,
-      name: colour.name,
-      rolls: colour.rolls.map((roll) => ({
-        rollId: roll.id,
-        status: roll.status,
-        thaan: roll.thaan,
-        issuedKg: roll.issuedKg,
-        returnedKg: roll.returnedKg === "0" ? "" : roll.returnedKg,
-        confirmedLayers: text(roll.confirmedLayers),
-      })),
-    })),
+    // A colour saved before its Thaan were weighed still shows, as a row without weight.
+    rolls: batch.colours.flatMap((colour) =>
+      colour.rolls.length === 0
+        ? [{ ...emptyRoll(colour.name), colourId: colour.id }]
+        : colour.rolls.map((roll) => ({
+            rollId: roll.id,
+            colourId: colour.id,
+            status: roll.status,
+            colour: colour.name,
+            thaan: roll.thaan,
+            issuedKg: roll.issuedKg,
+            returnedKg: roll.returnedKg ?? "",
+            confirmedLayers: text(roll.confirmedLayers),
+            note: roll.note ?? "",
+          })),
+    ),
     saveAsDefault: false,
+  };
+}
+
+/** One colour of the batch: its name, its saved id if any, and which form rows are its Thaan. */
+export interface ColourGroup {
+  name: string;
+  colourId: string | undefined;
+  rows: number[];
+}
+
+/**
+ * Rows → colours in first-seen order; rows naming the same colour (any case) form
+ * one group. Rows without a colour stay apart so each is flagged on its own. A saved
+ * colour id goes to the group holding its issued Thaan first (they cannot move),
+ * then to any group still without one; the issued Thaan's spelling names the group.
+ */
+export function groupRows(rows: RollValues[], include: (row: RollValues) => boolean = () => true): ColourGroup[] {
+  const groups = new Map<string, ColourGroup>();
+
+  rows.forEach((row, index) => {
+    if (!include(row)) return;
+
+    const name = row.colour.trim();
+    const key = name ? name.toLowerCase() : `#${index}`;
+    const group = groups.get(key) ?? { name, colourId: undefined, rows: [] };
+
+    group.rows.push(index);
+    groups.set(key, group);
+  });
+
+  const list = [...groups.values()];
+  const claimed = new Set<string>();
+
+  for (const issuedOnly of [true, false]) {
+    for (const group of list) {
+      if (group.colourId) continue;
+
+      const owner = group.rows
+        .map((index) => rows[index]!)
+        .find((row) => row.colourId && !claimed.has(row.colourId) && (!issuedOnly || row.status !== "DRAFT"));
+
+      if (!owner) continue;
+
+      group.colourId = owner.colourId;
+      claimed.add(owner.colourId);
+
+      if (owner.status !== "DRAFT") group.name = owner.colour.trim();
+    }
+  }
+
+  return list;
+}
+
+/** Maps a "colours.g.rolls.j.field" path (calculator or API) back to the form row it came from. */
+export function rowPathMapper(groups: ColourGroup[]): (path: string) => string {
+  return (path) => {
+    const match = /^colours\.(\d+)(?:\.(name|rolls)(?:\.(\d+)(\..+)?)?)?$/.exec(path);
+
+    if (!match) return path === "colours" ? "rolls" : path;
+
+    const group = groups[Number(match[1])];
+
+    if (!group) return path;
+
+    const first = group.rows[0] ?? 0;
+
+    if (match[3] === undefined) return `rolls.${first}.colour`;
+
+    const row = group.rows[Number(match[3])] ?? first;
+
+    // Thaan numbers are not on screen; a problem with one shows on its colour.
+    return `rolls.${row}${match[4] === undefined ? ".issuedKg" : match[4] === ".thaan" ? ".colour" : match[4]}`;
   };
 }
 
@@ -145,10 +225,14 @@ const decimalOrNull = (value: string) => (value.trim() === "" ? null : value.tri
 export interface CalcInputs {
   marker: MarkerInput;
   colours: ColourInput[];
+  groups: ColourGroup[];
+  /** Calculator issue path → form field path. */
+  toFormPath: (path: string) => string;
 }
 
 export function calcInputsOf(values: CuttingFormValues): CalcInputs {
   const calculated = values.marker.weightSource === "CALCULATED";
+  const groups = groupRows(values.rolls);
 
   return {
     marker: {
@@ -164,16 +248,40 @@ export function calcInputsOf(values: CuttingFormValues): CalcInputs {
         pieceWeightG: decimalOrNull(size.pieceWeightG),
       })),
     },
-    colours: values.colours.map((colour) => ({
-      name: colour.name,
-      rolls: colour.rolls.map((roll) => ({
-        thaan: roll.thaan,
-        issuedKg: roll.issuedKg.trim(),
-        returnedKg: roll.returnedKg.trim() || "0",
-        confirmedLayers: roll.confirmedLayers.trim() === "" ? null : whole(roll.confirmedLayers),
-      })),
+    colours: groups.map((group) => ({
+      name: group.name,
+      rolls: group.rows.map((index) => {
+        const roll = values.rolls[index]!;
+
+        return {
+          thaan: roll.thaan,
+          issuedKg: roll.issuedKg.trim(),
+          returnedKg: decimalOrNull(roll.returnedKg),
+          confirmedLayers: roll.confirmedLayers.trim() === "" ? null : whole(roll.confirmedLayers),
+        };
+      }),
     })),
+    groups,
+    toFormPath: rowPathMapper(groups),
   };
+}
+
+/** The calculation for each form row, in row order. */
+export function rowResultsOf(inputs: CalcInputs, calc: BatchResult): (RollResult | undefined)[] {
+  const results: (RollResult | undefined)[] = [];
+
+  inputs.groups.forEach((group, groupIndex) =>
+    group.rows.forEach((row, position) => {
+      results[row] = calc.colours[groupIndex]?.rolls[position];
+    }),
+  );
+
+  return results;
+}
+
+/** Calculator issues and warnings with their paths pointing at form rows. */
+export function onRows(issues: Issue[], inputs: CalcInputs): Issue[] {
+  return issues.map((issue) => ({ ...issue, path: inputs.toFormPath(issue.path) }));
 }
 
 const integerOr = (value: string, fallback: number) => {
@@ -188,50 +296,24 @@ export interface DraftPayload {
   toFormPath: (path: string) => string;
 }
 
-const blankRoll = (roll: RollValues) => !roll.rollId && !roll.thaan.trim() && !roll.issuedKg.trim();
+/** A row with nothing typed and nothing saved is not sent. */
+const blankRoll = (roll: RollValues) => !roll.rollId && !roll.colour.trim() && !roll.issuedKg.trim();
+
+/** A row naming only its colour saves the colour; the Thaan follows once weighed. */
+const weighed = (roll: RollValues) => Boolean(roll.rollId || roll.issuedKg.trim());
 
 /**
- * What a save sends. Rows left completely blank are skipped, so a half-filled form
- * can still be saved as a draft; the index maps keep server errors on the right row.
+ * What a save sends. Blank rows are skipped, so a half-filled form can still be
+ * saved as a draft; the group map keeps server errors on the right row.
  */
 export function draftPayloadOf(values: CuttingFormValues): DraftPayload {
   const calculated = values.marker.weightSource === "CALCULATED";
-  const colourIndex: number[] = [];
-  const rollIndex: number[][] = [];
 
-  const colours = values.colours.flatMap((colour, index) => {
-    const rolls = colour.rolls.flatMap((roll, position) => (blankRoll(roll) ? [] : [{ roll, position }]));
-
-    if (!colour.colourId && !colour.name.trim() && rolls.length === 0) return [];
-
-    colourIndex.push(index);
-    rollIndex.push(rolls.map((entry) => entry.position));
-
-    return [
-      {
-        id: colour.colourId || undefined,
-        name: colour.name,
-        rolls: rolls.map(({ roll }) => ({
-          id: roll.rollId || undefined,
-          thaan: roll.thaan,
-          issuedKg: roll.issuedKg.trim(),
-          returnedKg: roll.returnedKg.trim() || "0",
-          confirmedLayers: roll.confirmedLayers.trim() === "" ? null : integerOr(roll.confirmedLayers, 0),
-        })),
-      },
-    ];
-  });
-
-  const toFormPath = (path: string) =>
-    path.replace(/^colours\.(\d+)(?:\.rolls\.(\d+))?/, (match, colour: string, row?: string) => {
-      const formColour = colourIndex[Number(colour)];
-
-      if (formColour === undefined) return match;
-
-      if (row === undefined) return `colours.${formColour}`;
-
-      return `colours.${formColour}.rolls.${rollIndex[Number(colour)]?.[Number(row)] ?? row}`;
-    });
+  const groups = groupRows(values.rolls, (roll) => !blankRoll(roll)).map((group) => ({
+    ...group,
+    rows: group.rows.filter((index) => weighed(values.rolls[index]!)),
+    named: group.rows,
+  }));
 
   return {
     draft: {
@@ -252,10 +334,28 @@ export function draftPayloadOf(values: CuttingFormValues): DraftPayload {
         piecesPerPala: integerOr(size.piecesPerPala, 0),
         pieceWeightG: decimalOrNull(size.pieceWeightG),
       })),
-      colours,
+      colours: groups.map((group) => ({
+        id: group.colourId,
+        name: group.name,
+        rolls: group.rows.map((index) => {
+          const roll = values.rolls[index]!;
+
+          return {
+            id: roll.rollId || undefined,
+            thaan: roll.thaan || undefined,
+            issuedKg: roll.issuedKg.trim(),
+            returnedKg: decimalOrNull(roll.returnedKg),
+            confirmedLayers: roll.confirmedLayers.trim() === "" ? null : integerOr(roll.confirmedLayers, 0),
+            note: roll.confirmedLayers.trim() === "" ? null : roll.note.trim() || null,
+          };
+        }),
+      })),
       saveAsDefault: values.saveAsDefault,
     },
-    toFormPath,
+    // A colour-level error points at the colour's first row, even one not yet weighed.
+    toFormPath: rowPathMapper(
+      groups.map((group) => ({ ...group, rows: group.rows.length ? group.rows : group.named })),
+    ),
   };
 }
 
@@ -264,14 +364,14 @@ export type StepId = "details" | "marker" | "thaan";
 export const STEPS: { id: StepId; title: string; description: string }[] = [
   { id: "details", title: "Lot & item", description: "Lot number, what is cut, from which fabric and by whom" },
   { id: "marker", title: "Marker & sizes", description: "Weight of one Pala and the size ratio" },
-  { id: "thaan", title: "Colours & Thaan", description: "Weight issued from each roll" },
+  { id: "thaan", title: "Colours & Thaan", description: "Each Thaan's colour and the weight issued" },
 ];
 
 /** Which form section owns a field path. */
 export function stepOf(path: string): StepId {
   if (path.startsWith("marker") || path.startsWith("sizes")) return "marker";
 
-  if (path.startsWith("colours")) return "thaan";
+  if (path.startsWith("rolls") || path.startsWith("colours")) return "thaan";
 
   return "details";
 }

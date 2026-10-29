@@ -26,17 +26,17 @@ test.describe("session", () => {
 
   test("a server error on first load shows a reconnecting screen, not a sign-out", async ({ page, context }) => {
     await page.route("**/api/v1/auth/me", (route) => route.fulfill(serverError));
-    await page.goto("/fabric");
+    await page.goto("/fabric/ledger");
 
     await expect(page.getByRole("heading", { name: "Can't reach the server" })).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText(/You are still signed in/)).toBeVisible();
-    await expect(page).toHaveURL(/\/fabric$/);
+    await expect(page).toHaveURL(/\/fabric\/ledger$/);
     expect(hasSessionCookie(await context.cookies())).toBe(true);
 
     // Server back: one click (or the automatic retry) restores the page.
     await page.unroute("**/api/v1/auth/me");
     await page.getByRole("button", { name: "Try again" }).click();
-    await expect(page.getByRole("heading", { name: "Fabric Master" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Stock & Ledger" })).toBeVisible();
   });
 
   test("an unreachable API does not sign the user out", async ({ page, context }) => {
@@ -47,18 +47,21 @@ test.describe("session", () => {
   });
 
   test("server errors while working stay on the page with a retry", async ({ page }) => {
-    await page.goto("/fabric");
-    await expect(page.getByRole("heading", { name: "Fabric Master" })).toBeVisible();
+    await page.goto("/fabric/ledger");
+    await expect(page.getByRole("heading", { name: "Stock & Ledger" })).toBeVisible();
 
-    await page.route("**/api/v1/fabrics?**", (route) => route.fulfill(serverError));
-    await page.getByPlaceholder(/Search/).first().fill("denim");
+    await page.route("**/api/v1/fabrics/movements?**", (route) => route.fulfill(serverError));
+    await page
+      .getByPlaceholder(/Search/)
+      .first()
+      .fill("denim");
     await expect(page.getByRole("button", { name: /Try again|Retry/ }).first()).toBeVisible();
     await expect(page).toHaveURL(/\/fabric/);
     await expect(page).not.toHaveURL(/\/login/);
   });
 
   test("a session revoked from another device signs out on the next request", async ({ page, request }) => {
-    await page.goto("/fabric");
+    await page.goto("/fabric/ledger");
 
     // Another device (its own cookie jar) signs in and chooses "Sign out everywhere".
     const origin = new URL(page.url()).origin;
@@ -74,16 +77,21 @@ test.describe("session", () => {
     });
     expect(everywhere.status()).toBe(200);
 
-    // This browser still holds its (now dead) cookie; its next API call is refused.
-    await page.getByPlaceholder(/Search/).first().fill("denim");
+    // This browser still holds its (now dead) cookie; its next API call is refused. That may be
+    // a background refresh before the search is typed, so the search itself is best effort.
+    await page
+      .getByPlaceholder(/Search/)
+      .first()
+      .fill("denim", { timeout: 5_000 })
+      .catch(() => undefined);
     await expect(page).toHaveURL(/reason=expired$/);
     await expect(page.getByText("Your session has ended. Please log in again.")).toBeVisible();
   });
 
   test("logging out in one tab logs out the other tabs", async ({ page, context }) => {
     const other = await context.newPage();
-    await other.goto("/fabric");
-    await expect(other.getByRole("heading", { name: "Fabric Master" })).toBeVisible();
+    await other.goto("/fabric/ledger");
+    await expect(other.getByRole("heading", { name: "Stock & Ledger" })).toBeVisible();
 
     await page.getByRole("button", { name: /Sam Staff/ }).click();
     await page.getByRole("menuitem", { name: "Log out" }).click();

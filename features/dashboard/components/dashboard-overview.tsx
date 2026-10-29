@@ -4,12 +4,15 @@ import { format, startOfMonth } from "date-fns";
 import {
   ArrowRight,
   ArrowUpRight,
+  Ban,
   CheckCircle2,
   Layers,
   PackagePlus,
   PackageX,
   Plus,
   Receipt,
+  RotateCcw,
+  Shirt,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -24,8 +27,9 @@ import { navigation } from "@/config/navigation";
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
 import { filterNavigation, hasPermission } from "@/features/auth/lib/permissions";
 import { InwardFormDialog } from "@/features/fabric/components/inward-form-dialog";
+import { useIssues, useRejects, useRework } from "@/features/stitching/hooks/use-stitching";
 import { useFabricList, useInwards } from "@/features/fabric/hooks/use-fabric";
-import { formatDate, formatMoney, formatQty } from "@/features/fabric/lib/format";
+import { formatDate, formatMoney, formatQty, inwardNumber } from "@/features/fabric/lib/format";
 import { cn } from "@/lib/utils";
 
 function greeting(hour: number) {
@@ -35,18 +39,20 @@ function greeting(hour: number) {
 }
 
 function Panel({
+  id,
   title,
   href,
   linkLabel,
   children,
 }: {
+  id?: string;
   title: string;
   href: string;
   linkLabel: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex min-w-0 flex-col rounded-lg border bg-card">
+    <section id={id} className="flex min-w-0 scroll-mt-20 flex-col rounded-lg border bg-card">
       <header className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
         <h2 className="text-[15px] font-semibold">{title}</h2>
         <Link href={href} className="inline-flex items-center gap-1 text-[13px] font-medium text-link hover:underline">
@@ -78,7 +84,51 @@ function ListSkeleton() {
   );
 }
 
-function FabricSnapshot({ canPost }: { canPost: boolean }) {
+/** Where the pieces are: with Jogadi teams, waiting for rework, rejected. */
+function ProductionSnapshot() {
+  const issues = useIssues({ page: 1, pageSize: 1 });
+  const rework = useRework({ page: 1, pageSize: 1 });
+  const rejects = useRejects({ page: 1, pageSize: 1 });
+
+  if (issues.isPending || rework.isPending || rejects.isPending) {
+    return (
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+        {Array.from({ length: 3 }, (_, index) => (
+          <StatCardSkeleton key={index} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+      <StatCard
+        label="With Jogadi teams"
+        icon={Shirt}
+        value={(issues.data?.summary.wip ?? 0).toLocaleString("en-IN")}
+        context={`pieces in ${issues.data?.summary.open ?? 0} open issue${issues.data?.summary.open === 1 ? "" : "s"}`}
+        href="/stitching?status=open"
+      />
+      <StatCard
+        label="Rework to fix"
+        icon={RotateCcw}
+        value={(rework.data?.pending ?? 0).toLocaleString("en-IN")}
+        tone={(rework.data?.pending ?? 0) > 0 ? "warning" : "default"}
+        context="pieces sent back"
+        href="/rework"
+      />
+      <StatCard
+        label="Rejected pieces"
+        icon={Ban}
+        value={(rejects.data?.pieces ?? 0).toLocaleString("en-IN")}
+        context="from stitching and rework"
+        href="/rework?tab=rejects"
+      />
+    </div>
+  );
+}
+
+function FabricSnapshot({ canPost, canSeeCost }: { canPost: boolean; canSeeCost: boolean }) {
   // Each panel asks the server for exactly what it shows: six rows, plus totals.
   const fabrics = useFabricList({ stock: "low", pageSize: 6 });
   const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
@@ -90,33 +140,38 @@ function FabricSnapshot({ canPost }: { canPost: boolean }) {
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className={cn("grid grid-cols-2 gap-3", canSeeCost && "xl:grid-cols-4")}>
         {fabrics.isPending || month.isPending ? (
-          Array.from({ length: 4 }, (_, index) => <StatCardSkeleton key={index} />)
+          Array.from({ length: canSeeCost ? 4 : 2 }, (_, index) => <StatCardSkeleton key={index} />)
         ) : (
           <>
-            <StatCard
-              label="Fabric stock value"
-              icon={Wallet}
-              value={summary ? formatMoney(summary.stockValue) : "—"}
-              context={summary ? `${summary.fabrics} fabric${summary.fabrics === 1 ? "" : "s"}` : undefined}
-              href="/fabric"
-            />
+            {canSeeCost ? (
+              <StatCard
+                label="Fabric stock value"
+                icon={Wallet}
+                value={summary?.stockValue != null ? formatMoney(summary.stockValue) : "—"}
+                context={summary ? `${summary.fabrics} fabric${summary.fabrics === 1 ? "" : "s"}` : undefined}
+                href="/fabric/ledger"
+              />
+            ) : null}
             <StatCard
               label="Need reorder"
               icon={PackageX}
               value={summary ? String(summary.reorder) : "—"}
               tone={summary && summary.reorder > 0 ? "warning" : "default"}
               context={summary && summary.reorder > 0 ? "At or below reorder level" : "Everything above reorder level"}
-              href="/fabric?stock=low"
+              // The fabrics behind this number are listed just below.
+              href="#needs-reorder"
             />
-            <StatCard
-              label="Purchased this month"
-              icon={Receipt}
-              value={month.data ? formatMoney(month.data.totalAmount) : "—"}
-              context={`Since ${formatDate(monthStart)}`}
-              href={`/fabric/purchases?dateFrom=${monthStart}&status=posted`}
-            />
+            {canSeeCost ? (
+              <StatCard
+                label="Purchased this month"
+                icon={Receipt}
+                value={month.data?.totalAmount != null ? formatMoney(month.data.totalAmount) : "—"}
+                context={`Since ${formatDate(monthStart)}`}
+                href={`/fabric/purchases?dateFrom=${monthStart}&status=posted`}
+              />
+            ) : null}
             <StatCard
               label="Purchases this month"
               icon={PackagePlus}
@@ -129,7 +184,7 @@ function FabricSnapshot({ canPost }: { canPost: boolean }) {
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-2">
-        <Panel title="Needs reorder" href="/fabric?stock=low" linkLabel="All fabrics">
+        <Panel id="needs-reorder" title="Needs reorder" href="/fabric/ledger" linkLabel="Stock & Ledger">
           {fabrics.isPending ? (
             <ListSkeleton />
           ) : fabrics.isError ? (
@@ -138,7 +193,7 @@ function FabricSnapshot({ canPost }: { canPost: boolean }) {
             <EmptyState
               icon={Layers}
               title="No fabrics yet"
-              description="Add fabrics in Fabric Master to track stock."
+              description="Add a purchase to start tracking fabric stock."
             />
           ) : reorder.length === 0 ? (
             <EmptyState icon={CheckCircle2} title="Stock is healthy" description="No fabric is at its reorder level." />
@@ -210,10 +265,16 @@ function FabricSnapshot({ canPost }: { canPost: boolean }) {
                           inward.reversal && "text-muted-foreground line-through",
                         )}
                       >
-                        {formatMoney(inward.amount)}
+                        {inward.amount != null
+                          ? formatMoney(inward.amount)
+                          : formatQty(inward.quantity, inward.fabric.unit)}
                       </span>
                       <span className="text-xs text-muted-foreground tabular-nums">
-                        {inward.reversal ? "Reversed" : formatQty(inward.quantity, inward.fabric.unit)}
+                        {inward.reversal
+                          ? "Reversed"
+                          : inward.amount != null
+                            ? formatQty(inward.quantity, inward.fabric.unit)
+                            : inwardNumber(inward.number)}
                       </span>
                     </span>
                   </Link>
@@ -250,13 +311,16 @@ export function DashboardOverview() {
         canPost ? (
           <Button onClick={() => setPurchasing((count) => count + 1)}>
             <Plus aria-hidden />
-            Record purchase
+            Add purchase
           </Button>
         ) : null
       }
     >
       <div className="grid gap-6">
-        {canSeeFabric ? <FabricSnapshot canPost={canPost} /> : null}
+        {hasPermission(user, "stitching.view") ? <ProductionSnapshot /> : null}
+        {canSeeFabric ? (
+          <FabricSnapshot canPost={canPost} canSeeCost={hasPermission(user, "costing.view")} />
+        ) : null}
 
         <section className="grid gap-3">
           <h2 className="text-[15px] font-semibold">Modules</h2>

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { calculateBatch } from "./cutting-calc";
 import { kgText } from "./format";
-import { calcInputsOf, draftPayloadOf, emptyRoll, nameKey, newProductionValues, stepOf, type CuttingFormValues } from "./form-model";
+import { calcInputsOf, draftPayloadOf, emptyRoll, nameKey, newProductionValues, onRows, stepOf, type CuttingFormValues } from "./form-model";
 
 function form(overrides: Partial<CuttingFormValues> = {}): CuttingFormValues {
   return {
@@ -13,13 +13,7 @@ function form(overrides: Partial<CuttingFormValues> = {}): CuttingFormValues {
       { label: "M", piecesPerPala: "2", pieceWeightG: "" },
       { label: "L", piecesPerPala: "1", pieceWeightG: "" },
     ],
-    colours: [
-      {
-        colourId: "",
-        name: "Black",
-        rolls: [{ rollId: "", status: "DRAFT", thaan: "TH-001", issuedKg: "30.500", returnedKg: "", confirmedLayers: "" }],
-      },
-    ],
+    rolls: [{ ...emptyRoll("Black"), issuedKg: "30.500" }],
     ...overrides,
   };
 }
@@ -43,36 +37,68 @@ describe("production form model", () => {
     expect(result.totals).toMatchObject({ confirmedPala: 14, acceptedPieces: 56 });
   });
 
-  it("sends empty returns as zero and an empty confirmed Pala as 'use the estimate'", () => {
+  it("sends an empty return and Pala as 'work it out' and leaves new Thaan unnumbered", () => {
     const { draft } = draftPayloadOf(form());
 
-    expect(draft.colours[0]!.rolls[0]).toMatchObject({ returnedKg: "0", confirmedLayers: null, issuedKg: "30.500" });
+    expect(draft.colours[0]!.rolls[0]).toEqual({
+      id: undefined,
+      thaan: undefined,
+      issuedKg: "30.500",
+      returnedKg: null,
+      confirmedLayers: null,
+      note: null,
+    });
     expect(draft.colours[0]!.id).toBeUndefined();
     expect(draft.marker).toMatchObject({ measuredPalaKg: "2.130", widthM: null, repetitionsPerLayer: 1 });
   });
 
-  it("skips blank rows when saving and maps server errors back to the row on screen", () => {
-    const values = form();
-    const black = values.colours[0]!;
-
-    values.colours = [
-      { colourId: "", name: "", rolls: [emptyRoll()] },
-      { ...black, rolls: [emptyRoll(), black.rolls[0]!] },
-    ];
+  it("groups rows into colours by name, skips blank rows and maps errors back to the row on screen", () => {
+    const values = form({
+      rolls: [
+        emptyRoll(),
+        { ...emptyRoll("Black"), issuedKg: "10" },
+        { ...emptyRoll("Blue"), issuedKg: "5" },
+        { ...emptyRoll("black "), issuedKg: "7" },
+        emptyRoll("Red"),
+      ],
+    });
 
     const { draft, toFormPath } = draftPayloadOf(values);
 
-    expect(draft.colours).toHaveLength(1);
-    expect(draft.colours[0]!.rolls.map((roll) => roll.thaan)).toEqual(["TH-001"]);
-    expect(toFormPath("colours.0.rolls.0.issuedKg")).toBe("colours.1.rolls.1.issuedKg");
-    expect(toFormPath("colours.0.name")).toBe("colours.1.name");
+    expect(draft.colours.map((colour) => [colour.name, colour.rolls.map((roll) => roll.issuedKg)])).toEqual([
+      ["Black", ["10", "7"]],
+      ["Blue", ["5"]],
+      ["Red", []],
+    ]);
+    expect(toFormPath("colours.0.rolls.1.issuedKg")).toBe("rolls.3.issuedKg");
+    expect(toFormPath("colours.1.name")).toBe("rolls.2.colour");
+    expect(toFormPath("colours.2.name")).toBe("rolls.4.colour");
     expect(toFormPath("marker.gsm")).toBe("marker.gsm");
+
+    // The calculator flags the colourless row on that row.
+    const inputs = calcInputsOf(values);
+    const result = calculateBatch(inputs.marker, inputs.colours);
+
+    expect(onRows(result.issues, inputs).map((issue) => issue.path)).toContain("rolls.0.colour");
+  });
+
+  it("keeps issued Thaan under their saved colour, whatever row order or spelling", () => {
+    const issued = { ...emptyRoll("Black"), rollId: "r1", colourId: "c1", status: "ISSUED" as const, thaan: "1", issuedKg: "10" };
+    const values = form({
+      rolls: [{ ...emptyRoll("BLACK"), rollId: "r2", colourId: "c1", thaan: "2", issuedKg: "4" }, issued],
+    });
+
+    const { draft } = draftPayloadOf(values);
+
+    expect(draft.colours).toEqual([
+      expect.objectContaining({ id: "c1", name: "Black", rolls: [expect.objectContaining({ id: "r2" }), expect.objectContaining({ id: "r1", thaan: "1" })] }),
+    ]);
   });
 
   it("assigns each field to its wizard step", () => {
     expect(stepOf("articleName")).toBe("details");
     expect(stepOf("sizes.2.label")).toBe("marker");
-    expect(stepOf("colours.1.rolls.0.issuedKg")).toBe("thaan");
+    expect(stepOf("rolls.1.issuedKg")).toBe("thaan");
   });
 
   it("matches item names the way the API does", () => {

@@ -31,7 +31,6 @@ import {
   useIssueBatch,
   useLots,
   useSaveBatch,
-  useUpdateLot,
 } from "../hooks/use-production";
 import { calculateBatch, parseScaled, type Issue } from "../lib/cutting-calc";
 import { cutNumber, microKgText } from "../lib/format";
@@ -40,6 +39,8 @@ import {
   draftPayloadOf,
   markerValuesOf,
   nameKey,
+  onRows,
+  rowResultsOf,
   sizeValuesOf,
   stepOf,
   STEPS,
@@ -107,7 +108,6 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
 
   const createLot = useCreateLot();
   const saveBatch = useSaveBatch();
-  const updateLot = useUpdateLot();
   const issue = useIssueBatch();
   const finalize = useFinalizeBatch();
   const deleteBatch = useDeleteBatch();
@@ -121,6 +121,9 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
   const values = form.getValues();
   const inputs = calcInputsOf(values);
   const calc = calculateBatch(inputs.marker, inputs.colours);
+  // The calculator speaks in colours and their Thaan; the form shows one row per Thaan.
+  const calcIssues = onRows(calc.issues, inputs);
+  const calcWarnings = onRows(calc.warnings, inputs);
   const batch = mode.kind === "edit" ? mode.batch : null;
   const fabricId = batch ? batch.lot.fabric.id : values.fabricId;
   const canSeeCost = hasPermission(user, "costing.view");
@@ -135,7 +138,7 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
   const kgFabrics = (fabrics.data ?? []).filter((option) => option.unit === "KG");
   const selectedFabric = fabrics.data?.find((option) => option.id === fabricId);
   const storeKg = selectedFabric ? (parseScaled(String(selectedFabric.balance), 6) ?? 0n) : null;
-  const allRolls = values.colours.flatMap((colour) => colour.rolls);
+  const allRolls = values.rolls;
 
   const toIssueKg = allRolls.reduce(
     (sum, roll) => (roll.status === "DRAFT" ? sum + (parseScaled(roll.issuedKg, 6) ?? 0n) : sum),
@@ -154,10 +157,7 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
       ? articles.data?.find((article) => nameKey(article.name) === nameKey(values.articleName))
       : undefined;
 
-  const targetText = values.targetQuantity.trim();
-  const target = targetText === "" ? null : Number(targetText);
-
-  // Typing an open lot's number adds this cutting to it: its item, fabric and target come along.
+  // Typing an open lot's number adds this cutting to it: its item and fabric come along.
   const matchedLotId = matchedLot?.id;
 
   useEffect(() => {
@@ -167,10 +167,6 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
 
     form.setValue("articleName", lot.article.name);
     form.setValue("fabricId", lot.fabric.id);
-
-    if (lot.targetQuantity !== null && !form.getValues("targetQuantity").trim()) {
-      form.setValue("targetQuantity", String(lot.targetQuantity));
-    }
   }, [matchedLotId, openLots.data, form]);
 
   // An item's saved measurements fill in, unless they were already edited here.
@@ -213,30 +209,21 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
 
   if (!batch && !values.fabricId) formIssues.push({ path: "fabricId", message: "Choose a fabric." });
 
-  if (target !== null && (!Number.isInteger(target) || target < 1)) {
-    formIssues.push({ path: "targetQuantity", message: "Enter whole pieces, 1 or more." });
-  }
-
   const masterIssues: Issue[] = values.cuttingMasterId
     ? []
     : [{ path: "cuttingMasterId", message: "Choose the cutting master." }];
 
-  const finalizeIssues = [
-    ...formIssues,
-    ...calc.issues,
-    ...masterIssues,
-    ...(target === null ? [{ path: "targetQuantity", message: "Confirm the lot's target quantity." }] : []),
-  ];
+  const finalizeIssues = [...formIssues, ...calcIssues, ...masterIssues];
 
   const issueIssues = [
     ...formIssues,
     ...masterIssues,
-    ...calc.issues.filter((item) => /(thaan|issuedKg|returnedKg)$/.test(item.path)),
+    ...calcIssues.filter((item) => /(colour|issuedKg|returnedKg)$/.test(item.path)),
   ];
 
   const issueMap = new Map<string, string>();
 
-  for (const item of attempted ? finalizeIssues : [...formIssues, ...calc.issues]) {
+  for (const item of attempted ? finalizeIssues : [...formIssues, ...calcIssues]) {
     if (!issueMap.has(item.path)) issueMap.set(item.path, item.message);
   }
 
@@ -273,8 +260,10 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
     const { draft, toFormPath } = draftPayloadOf(values);
 
     try {
-      let saved: Batch | null = batch;
+      let saved: Batch | null;
 
+      // One request per action: the server saves (or creates) and posts in one transaction,
+      // so a failed posting leaves nothing half done and the form stays as typed.
       if (!batch) {
         const created = await createLot.mutateAsync({
           lotNumber: values.lotNumber.trim(),
@@ -283,36 +272,22 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
             : { name: (matchedLot?.article.name ?? values.articleName).trim(), code: null },
           fabricId: values.fabricId,
           productionDate: values.cuttingDate,
-          targetQuantity: target,
+          targetQuantity: null,
           notes: null,
           cutting: draft,
+          action: intent === "save" ? undefined : intent,
         });
 
         saved = created.batch;
       } else {
-        if (target !== batch.lot.targetQuantity) await updateLot.mutateAsync({ id: batch.lot.id, targetQuantity: target });
+        const edits = form.formState.isDirty ? draft : undefined;
 
-        if (form.formState.isDirty || intent === "save") saved = await saveBatch.mutateAsync({ id: batch.id, ...draft });
+        if (intent === "issue") saved = await issue.mutateAsync({ id: batch.id, cutting: edits });
+        else if (intent === "finalize") saved = await finalize.mutateAsync({ id: batch.id, cutting: edits });
+        else saved = await saveBatch.mutateAsync({ id: batch.id, ...draft });
       }
 
       if (!saved) return;
-
-      try {
-        if (intent === "issue") saved = await issue.mutateAsync(saved.id);
-
-        if (intent === "finalize") saved = await finalize.mutateAsync(saved.id);
-      } catch (error) {
-        // The draft exists now; a failed posting is shown on its own page.
-        if (!batch) {
-          form.reset(form.getValues());
-          toast.error(error instanceof ApiError ? error.message : "Saved as a draft, but posting failed.");
-          router.replace(`/cutting/${saved.id}`);
-
-          return;
-        }
-
-        throw error;
-      }
 
       queryClient.setQueryData(productionKeys.batch(saved.id), saved);
       form.reset(form.getValues());
@@ -448,14 +423,21 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
         </Section>
 
         <Section id="thaan" index={2}>
-          <StepThaan {...stepProps} storeKg={storeKg} toIssueKg={toIssueKg} fabricName={selectedFabric?.name ?? null} />
+          <StepThaan
+            {...stepProps}
+            storeKg={storeKg}
+            toIssueKg={toIssueKg}
+            fabricName={selectedFabric?.name ?? null}
+            results={rowResultsOf(inputs, calc)}
+            warnings={calcWarnings}
+          />
         </Section>
       </div>
 
       <div className="lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
         <SummaryAside
           calc={calc}
-          target={target}
+          warnings={calcWarnings}
           blockers={blockers}
           onGoTo={(id) => {
             setAttempted(true);
@@ -505,9 +487,9 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
             <Figure label="Pala" value={String(calc.totals.confirmedPala)} />
             <Figure label="Pieces" value={String(calc.totals.acceptedPieces)} />
           </dl>
-          {calc.warnings.length > 0 ? (
+          {calcWarnings.length > 0 ? (
             <ul className="grid gap-1 text-[13px] text-warning">
-              {calc.warnings.map((warning) => (
+              {calcWarnings.map((warning) => (
                 <li key={warning.path}>{warning.message}</li>
               ))}
             </ul>

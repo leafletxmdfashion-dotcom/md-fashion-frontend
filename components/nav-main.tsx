@@ -20,9 +20,10 @@ import {
 import { cn } from "@/lib/utils";
 import type { NavGroup, NavSubItem } from "@/types/navigation";
 
-// Muted icons that take the accent colour when their page is open.
+// Muted icons that take the accent colour when their page is open. The 11px inset centres the
+// icon in the collapsed rail, so it never moves while the sidebar folds.
 const itemClass =
-  "h-9 gap-3 px-2.5 text-sm text-sidebar-foreground 2xl:h-10 2xl:text-[15px] 2xl:[&_svg]:size-5 [&_svg]:text-muted-foreground hover:[&_svg]:text-sidebar-accent-foreground data-active:[&_svg]:text-link";
+  "h-9 gap-3 px-[11px] text-sm text-sidebar-foreground 2xl:h-10 2xl:text-[15px] 2xl:[&_svg]:size-5 [&_svg]:text-muted-foreground hover:[&_svg]:text-sidebar-accent-foreground data-active:[&_svg]:text-link";
 
 function matches(pathname: string, href: string, exact = false) {
   return pathname === href || (!exact && pathname.startsWith(`${href}/`));
@@ -63,9 +64,10 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
         render={
           <SidebarGroup
             className={cn(
-              "px-2 py-1.5",
+              "px-2 py-1",
+              // Rail only: a hairline stands in for the group title.
               index > 0 &&
-                "before:mx-2.5 before:mb-1.5 before:block before:border-t before:border-dashed before:border-sidebar-border",
+                "before:mx-3 before:block before:h-px before:bg-sidebar-border before:opacity-0 before:transition-opacity before:duration-300 group-data-[collapsible=icon]:before:opacity-100",
             )}
           />
         }
@@ -73,17 +75,17 @@ export function NavMain({ groups }: { groups: NavGroup[] }) {
         {group.title ? (
           <SidebarGroupLabel
             render={<CollapsibleTrigger />}
-            className="group/label h-7 w-full cursor-pointer gap-1 group-data-[collapsible=icon]:hidden px-2.5 text-[13px] font-medium text-muted-foreground hover:text-sidebar-accent-foreground 2xl:text-sm"
+            className="group/label h-7 w-full cursor-pointer justify-between px-[11px] text-xs font-medium text-muted-foreground group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-7 hover:text-sidebar-accent-foreground"
           >
+            {group.title}
             <ChevronDown
-              className="size-3.5! transition-transform group-data-[panel-open]/label:rotate-0 -rotate-90"
+              className="size-3.5! -rotate-90 opacity-0 transition-[transform,opacity] group-hover/label:opacity-100 group-focus-visible/label:opacity-100 group-data-[panel-open]/label:rotate-0"
               aria-hidden
             />
-            {group.title}
           </SidebarGroupLabel>
         ) : null}
-        <CollapsibleContent>
-          <SidebarMenu className="gap-0.5 pt-0.5">
+        <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0 motion-reduce:transition-none">
+          <SidebarMenu className="gap-0.5">
             {group.items.map((item) => {
               const Icon = item.icon;
 

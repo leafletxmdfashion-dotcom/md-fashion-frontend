@@ -6,7 +6,6 @@ import { Controller, type UseFormReturn } from "react-hook-form";
 import { Field, fieldProps } from "@/components/form/field";
 import { SuggestInput } from "@/components/form/suggest-input";
 import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FabricCombobox } from "@/features/fabric/components/fabric-combobox";
 import { todayISO } from "@/features/fabric/lib/format";
@@ -14,7 +13,7 @@ import type { FabricOption } from "@/features/fabric/types/fabric.types";
 
 import { useKarigarOptions } from "../hooks/use-production";
 import type { BatchResult } from "../lib/cutting-calc";
-import { CATEGORY_LABEL, microKgText, PAY_MODE_LABEL } from "../lib/format";
+import { CATEGORY_LABEL, karigarCode, microKgText, PAY_MODE_LABEL } from "../lib/format";
 import type { CuttingFormValues } from "../lib/form-model";
 import type { Article, LotListItem } from "../types/production.types";
 
@@ -45,7 +44,7 @@ function MasterSelect({ value, onChange, invalid }: { value: string; onChange: (
             <SelectItem key={master.id} value={master.id}>
               {master.name}
               <span className="ml-1.5 text-xs text-muted-foreground">
-                {CATEGORY_LABEL[master.category]} · {PAY_MODE_LABEL[master.payMode]}
+                {karigarCode(master.number)} · {CATEGORY_LABEL[master.category]} · {PAY_MODE_LABEL[master.payMode]}
               </span>
             </SelectItem>
           ))}
@@ -67,7 +66,6 @@ function MasterSelect({ value, onChange, invalid }: { value: string; onChange: (
 /** Section 1: lot number, item, fabric, and who cuts when. */
 export function StepDetails({
   form,
-  calc,
   errorAt,
   locked,
   openLots,
@@ -88,8 +86,6 @@ export function StepDetails({
 }) {
   const lotNumber = form.watch("lotNumber");
   const articleName = form.watch("articleName");
-  const target = form.watch("targetQuantity");
-  const pieces = calc.totals.acceptedPieces;
   const fixed = locked || matchedLot !== undefined;
 
   const lotHint = locked
@@ -100,7 +96,8 @@ export function StepDetails({
         ? "New lot · created when you save"
         : "Type the lot number, or pick an open lot to add more cutting to it";
 
-  const itemHint = matchedLot
+  // A saved cutting's item already exists, even when its lot is not in the open-lot list.
+  const itemHint = locked || matchedLot
     ? "From the lot"
     : matchedArticle
       ? `Existing item · ${matchedArticle.code}${matchedArticle.defaultMarker ? " · saved measurements filled in" : ""}`
@@ -189,37 +186,6 @@ export function StepDetails({
         <Field id="cutting-date" label="Cutting date" error={errorAt("cuttingDate")}>
           <Input {...fieldProps("cutting-date", errorAt("cuttingDate"))} type="date" max={todayISO()} {...form.register("cuttingDate")} />
         </Field>
-        <Field
-          id="lot-target"
-          label="Lot target quantity"
-          error={errorAt("targetQuantity")}
-          description={target.trim() ? undefined : "Can be confirmed later, before finalizing"}
-          action={
-            !target.trim() && pieces > 0 ? (
-              <button
-                type="button"
-                className="text-xs font-medium text-link hover:underline"
-                onClick={() => form.setValue("targetQuantity", String(pieces), { shouldDirty: true })}
-              >
-                Use {pieces}
-              </button>
-            ) : null
-          }
-        >
-          <InputGroup>
-            <InputGroupInput
-              {...fieldProps("lot-target", errorAt("targetQuantity"))}
-              type="number"
-              inputMode="numeric"
-              min={1}
-              step={1}
-              {...form.register("targetQuantity")}
-            />
-            <InputGroupAddon align="inline-end">
-              <InputGroupText>pieces</InputGroupText>
-            </InputGroupAddon>
-          </InputGroup>
-        </Field>
         <Field id="cutting-master" label="Cutting master" error={errorAt("cuttingMasterId")} description="Needed before fabric is issued">
           <Controller
             control={form.control}
@@ -229,11 +195,14 @@ export function StepDetails({
             )}
           />
         </Field>
-        <div className="md:col-span-3">
-          <Field id="cutting-notes" label="Notes" error={errorAt("notes")} description="Optional">
-            <Input {...fieldProps("cutting-notes", errorAt("notes"))} autoComplete="off" {...form.register("notes")} />
-          </Field>
-        </div>
+        <Field id="cutting-notes" label="Notes" error={errorAt("notes")} description="Optional">
+          <Input
+            {...fieldProps("cutting-notes", errorAt("notes"))}
+            autoComplete="off"
+            placeholder="e.g. Rush order, cut by Friday"
+            {...form.register("notes")}
+          />
+        </Field>
       </div>
     </div>
   );

@@ -34,6 +34,10 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // Fabrics are created from purchases now; the old Fabric Master address shows stock instead.
+  async redirects() {
+    return [{ source: "/fabric", destination: "/fabric/ledger", permanent: false }];
+  },
   async rewrites() {
     return [{ source: "/api/v1/:path*", destination: `${API_URL}/api/v1/:path*` }];
   },

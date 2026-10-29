@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
 import { hasPermission } from "@/features/auth/lib/permissions";
 import { formatDate } from "@/features/fabric/lib/format";
+import { useSingleSubmit } from "@/hooks/use-single-submit";
 import { ApiError } from "@/lib/api-client";
 
 import { useReverseBatch } from "../hooks/use-production";
@@ -22,7 +23,8 @@ import { Figure } from "./form-parts";
 
 function Card({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <section className="rounded-lg border bg-card">
+    // min-w-0: a grid item otherwise grows to its widest table, pushing a phone page sideways.
+    <section className="min-w-0 rounded-lg border bg-card">
       <header className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
         <h2 className="text-[15px] font-semibold">{title}</h2>
         {action}
@@ -37,15 +39,19 @@ function ReverseForm({ batch, onDone }: { batch: Batch; onDone: () => void }) {
   const [reason, setReason] = useState("");
   const error = reverse.error instanceof ApiError ? reverse.error : null;
 
+  const single = useSingleSubmit();
   const submit = () =>
-    reverse.mutate(
-      { id: batch.id, reason: reason.trim() },
-      {
-        onSuccess: () => {
-          toast.success(`${cutNumber(batch.number)} reversed. Fabric is back in the store.`);
-          onDone();
+    single((release) =>
+      reverse.mutate(
+        { id: batch.id, reason: reason.trim() },
+        {
+          onSuccess: () => {
+            toast.success(`${cutNumber(batch.number)} reversed. Fabric is back in the store.`);
+            onDone();
+          },
+          onSettled: release,
         },
-      },
+      ),
     );
 
   return (
@@ -93,7 +99,7 @@ export function BatchView({ batch }: { batch: Batch }) {
   const repetitions = batch.marker.repetitionsPerLayer;
 
   return (
-    <div className="grid gap-5">
+    <div className="grid min-w-0 gap-5">
       <section className="rounded-lg border bg-card p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-2">
           <StatusChip tone={BATCH_STATUS[batch.status].tone}>{BATCH_STATUS[batch.status].label}</StatusChip>
@@ -169,6 +175,7 @@ export function BatchView({ batch }: { batch: Batch }) {
                     <td className="py-2 text-right tabular-nums">
                       {repetitions > 1 ? `${roll.confirmedLayers ?? "—"} / ` : ""}
                       {roll.confirmedPala ?? "—"}
+                      {roll.note ? <span className="block text-xs text-muted-foreground">{roll.note}</span> : null}
                     </td>
                     <td className="py-2 text-right tabular-nums">{kgText(roll.consumedKg)}</td>
                     <td className="py-2 text-right tabular-nums">{kgText(roll.wastageKg)}</td>

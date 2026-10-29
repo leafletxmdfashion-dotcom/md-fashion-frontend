@@ -49,6 +49,23 @@ export function AcceptInvitationForm() {
 
   if (token === undefined || (token && invitation.isPending))
     return <AuthLoading />;
+  // Only the server saying so makes a link dead; a rate limit or lost connection does not.
+  if (invitation.isError && !(invitation.error instanceof ApiError && invitation.error.code === "TOKEN_INVALID")) {
+    return (
+      <>
+        <AuthHeading title="Join MD Fashion Center" />
+        <FormAlert>
+          {invitation.error instanceof ApiError
+            ? invitation.error.message
+            : "Could not check the invitation. Please try again."}
+        </FormAlert>
+        <Button className="mt-4 w-full" onClick={() => void invitation.refetch()} disabled={invitation.isFetching}>
+          {invitation.isFetching ? <Loader2 className="animate-spin" aria-hidden /> : null}
+          Try again
+        </Button>
+      </>
+    );
+  }
   if (!token || !invitation.data) return <InvalidLink {...INVALID} />;
   if (accept.error instanceof ApiError && accept.error.code === "TOKEN_INVALID")
     return <InvalidLink {...INVALID} />;

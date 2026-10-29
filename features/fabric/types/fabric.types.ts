@@ -16,7 +16,8 @@ export interface Fabric {
   description: string | null;
   balance: number;
   avgRate: number | null;
-  stockValue: number;
+  /** Null, like rates and amounts below, for users without costing.view. */
+  stockValue: number | null;
   movementCount: number;
   createdAt: string;
 }
@@ -28,6 +29,8 @@ export interface FabricOption {
   name: string;
   unit: FabricUnit;
   balance: number;
+  lowStockThreshold: number | null;
+  description: string | null;
 }
 
 /** Query params for the list endpoint: search, column filters (see components/data-table), page. */
@@ -36,11 +39,11 @@ export type FabricFilters = Record<string, string | number | undefined>;
 export interface FabricPage {
   fabrics: Fabric[];
   total: number;
-  summary: { stockValue: number; fabrics: number; inStock: number; reorder: number };
+  summary: { stockValue: number | null; fabrics: number; inStock: number; reorder: number };
 }
 
-export interface FabricInput {
-  code: string;
+/** Fixing a fabric (PUT /fabrics/:id). The code is generated and never edited. */
+export interface FabricUpdateInput {
   name: string;
   unit: FabricUnit;
   lowStockThreshold: number | null;
@@ -60,8 +63,8 @@ export interface Inward {
   fabric: FabricRef;
   inwardDate: string;
   quantity: number;
-  rate: number;
-  amount: number;
+  rate: number | null;
+  amount: number | null;
   supplier: string | null;
   invoiceRef: string | null;
   notes: string | null;
@@ -70,8 +73,12 @@ export interface Inward {
   reversal: { at: string; by: string | null; reason: string } | null;
 }
 
+/** A purchase names its fabric; an unknown name creates it (see POST /fabrics/inwards). */
 export interface InwardInput {
-  fabricId: string;
+  fabricName: string;
+  unit: FabricUnit;
+  lowStockThreshold: number | null;
+  description: string | null;
   inwardDate: string;
   quantity: number;
   rate: number;
@@ -86,7 +93,7 @@ export type InwardFilters = Record<string, string | number | undefined>;
 export interface InwardPage {
   inwards: Inward[];
   total: number;
-  totalAmount: number;
+  totalAmount: number | null;
   totalQuantity: Partial<Record<FabricUnit, number>>;
 }
 

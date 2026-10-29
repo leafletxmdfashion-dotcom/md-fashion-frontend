@@ -1,6 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { login } from "./helpers";
+
+/** Stock & Ledger, narrowed to one fabric: its headline figures. */
+async function fabricStock(page: Page, name: string) {
+  await page.goto("/fabric/ledger");
+  await page.getByLabel("Fabric", { exact: true }).click();
+  await page.getByLabel("Fabric", { exact: true }).fill(name);
+  await page.getByRole("option", { name: new RegExp(name) }).click();
+
+  return page.getByLabel(/Movement summary/);
+}
 
 test("new cutting: typed lot, item and Thaan on one page, finalized into stock, output and cost, then reversed", async ({
   page,
@@ -19,16 +29,21 @@ test("new cutting: typed lot, item and Thaan on one page, finalized into stock, 
           headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
           body: JSON.stringify(body),
         })
-      ).json()) as { data: { fabric: { id: string } } };
-    const fabric = (await post("/api/v1/fabrics", { name: "Polo Pique", code: "PR-PQ", unit: "KG" })).data.fabric;
+      ).json()) as unknown;
 
     await post("/api/v1/fabrics/inwards", {
-      fabricId: fabric.id,
+      fabricName: "Polo Pique",
+      unit: "KG",
       inwardDate: new Date().toISOString().slice(0, 10),
       quantity: 100,
       rate: 500,
     });
-    await post("/api/v1/karigars", { name: "Ram Bahadur", category: "CUTTING_MASTER", payMode: "PER_PIECE", payRate: 2.5 });
+    await post("/api/v1/karigars", {
+      name: "Ram Bahadur",
+      category: "CUTTING_MASTER",
+      payMode: "PER_PIECE",
+      payRate: 2.5,
+    });
   });
 
   await page.goto("/cutting");
@@ -55,17 +70,18 @@ test("new cutting: typed lot, item and Thaan on one page, finalized into stock, 
   await page.getByRole("button", { name: "Remove XL" }).click();
   await page.getByLabel("Pieces per Pala, size M").fill("2");
 
-  // 3 · Colours & Thaan: 30.500 kg gives 14 Pala, 56 pieces, 29.820 kg used, 0.680 kg waste, live.
-  await page.getByLabel("Colour", { exact: true }).fill("Black");
-  await page.getByLabel("Thaan number, row 1").fill("TH-001");
-  await page.getByLabel("Issued kg, Thaan TH-001").fill("30.500");
+  // 3 · Colours & Thaan: no Thaan number to type. 30.500 kg gives 14 Pala, 56 pieces and 0.680 kg waste, live.
+  await expect(page.getByLabel(/Thaan number/)).toHaveCount(0);
+  await page.getByLabel("Colour, row 1").fill("Black");
+  await page.getByLabel("Issued kg, Black").fill("30.500");
   await expect(page.getByLabel("Estimated Pala")).toHaveText("14");
-  await expect(page.getByLabel("Consumed", { exact: true })).toHaveText("29.820 kg");
+  await expect(page.getByLabel("Pala, Black")).toHaveAttribute("placeholder", "14");
+  await expect(page.getByLabel("Returned kg, Black")).toHaveAttribute("placeholder", "0.000");
   await expect(page.getByLabel("Wastage", { exact: true })).toHaveText("0.680 kg");
+  await expect(page.getByRole("complementary", { name: "Cutting summary" })).toContainText("29.820 kg");
 
-  // 4 · Summary lists the missing target; confirming it makes the cutting ready.
-  await expect(page.getByText("Confirm the lot's target quantity.").first()).toBeVisible();
-  await page.getByRole("button", { name: "Use 56" }).click();
+  // 4 · No lot target to confirm: the cutting is ready.
+  await expect(page.getByLabel(/target/i)).toHaveCount(0);
   await expect(page.getByText("Ready to post")).toBeVisible();
   await page.getByRole("button", { name: "Finalize cutting" }).click();
 
@@ -79,26 +95,28 @@ test("new cutting: typed lot, item and Thaan on one page, finalized into stock, 
   await expect(page.getByText("Finalized", { exact: true })).toBeVisible();
   await expect(page.getByText("LOT-45").first()).toBeVisible();
 
-  const reconciliation = page.locator("section").filter({ has: page.getByRole("heading", { name: "Material reconciliation" }) });
+  const reconciliation = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Material reconciliation" }) });
 
   await expect(reconciliation).toContainText("29.820 kg");
   await expect(reconciliation).toContainText("0.680 kg");
   await expect(reconciliation).toContainText("Rs 15,250.00");
 
-  const pieces = page.locator("section").filter({ has: page.getByRole("heading", { name: "Cut pieces by colour and size" }) });
+  const pieces = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Cut pieces by colour and size" }) });
 
   await expect(pieces.getByRole("row", { name: /Black/ })).toContainText(/14\s*28\s*14\s*56\s*56/);
 
   // The fabric store shows one issue to cutting; consumption is never deducted twice.
-  await page.goto("/fabric");
-  await expect(page.getByRole("row", { name: /Polo Pique/ })).toContainText("69.5 kg");
+  await expect(await fabricStock(page, "Polo Pique")).toContainText("69.5 kg");
 
   // Typing the same lot number again (any case) adds more cutting to that lot, with its item and fabric.
   await page.goto("/cutting/new");
   await page.getByLabel("Lot number").fill("lot-45");
   await expect(page.getByText(/Existing lot · Polo T-Shirt · 56 pieces cut so far/)).toBeVisible();
   await expect(page.getByLabel("Item / design")).toHaveValue("Polo T-Shirt");
-  await expect(page.getByLabel("Lot target quantity")).toHaveValue("56");
 
   // An authorized correction reverses the cutting without deleting it.
   await page.goto("/cutting");
@@ -108,26 +126,53 @@ test("new cutting: typed lot, item and Thaan on one page, finalized into stock, 
   await page.getByRole("button", { name: "Reverse cutting" }).click();
   await expect(page.getByText("Reversed", { exact: true }).first()).toBeVisible();
 
-  await page.goto("/fabric");
-  await expect(page.getByRole("row", { name: /Polo Pique/ })).toContainText("100 kg");
+  await expect(await fabricStock(page, "Polo Pique")).toContainText("100 kg");
 });
 
-test("validation blocks posting more Pala than a Thaan can give", async ({ page }) => {
+test("Pala fill in from the weight but can be typed over; return and wastage work themselves out", async ({ page }) => {
   await page.goto("/login");
   await login(page, "owner@garment.test");
   await expect(page).toHaveURL(/\/dashboard$/);
 
+  // A 10 kg Thaan at 2.3 kg per Pala: 4 Pala fit, 0.8 kg left over is wastage.
   await page.goto("/cutting/new");
-  await page.getByLabel("Measured Pala weight").fill("2.130");
-  await page.getByLabel("Colour", { exact: true }).fill("Blue");
-  await page.getByLabel("Thaan number, row 1").fill("TH-009");
-  await page.getByLabel("Issued kg, Thaan TH-009").fill("10");
-  await page.getByLabel("Confirmed Pala, Thaan TH-009").fill("5");
-  await expect(page.getByText("5 Pala is more than this Thaan can give (4). Re-measure the Pala weight first.").first()).toBeVisible();
+  await page.getByLabel("Measured Pala weight").fill("2.300");
+  await page.getByLabel("Colour, row 1").fill("Blue");
+  await page.getByLabel("Issued kg, Blue").fill("10");
+  await expect(page.getByLabel("Estimated Pala")).toHaveText("4");
+  await expect(page.getByLabel("Wastage", { exact: true })).toHaveText("0.800 kg");
 
-  await page.getByLabel("Issued kg, Thaan TH-009").fill("1.5");
-  await page.getByLabel("Confirmed Pala, Thaan TH-009").fill("");
-  await expect(page.getByText(/Less than one Pala: all 1\.500 kg of Thaan TH-009 becomes wastage/).first()).toBeVisible();
+  // Thinner fabric gave 9 Pala: typed in, no error, the whole Thaan counts as used.
+  await page.getByLabel("Pala, Blue").fill("9");
+  await expect(page.getByText(/more than this Thaan can give/)).toHaveCount(0);
+  await expect(page.getByText("Blue Thaan 1: 9 Pala entered, 4 fit by the marker weight.").first()).toBeVisible();
+  await expect(page.getByLabel("Wastage", { exact: true })).toHaveText("0.000 kg");
+  await page.getByLabel("Reason, Blue").fill("Thin fabric at the roll end");
+
+  // One click goes back to the number that fits by weight.
+  await page.getByRole("button", { name: "Reset to 4" }).click();
+  await expect(page.getByLabel("Pala, Blue")).toHaveValue("");
+  await expect(page.getByText(/Pala entered/)).toHaveCount(0);
+
+  // Thicker fabric gave 3: a whole Pala's worth goes back to the store, the rest is wastage.
+  await page.getByLabel("Pala, Blue").fill("3");
+  await expect(page.getByLabel("Returned kg, Blue")).toHaveAttribute("placeholder", "2.300");
+  await expect(page.getByLabel("Wastage", { exact: true })).toHaveText("0.800 kg");
+
+  // A weighed return overrides the worked-out one.
+  await page.getByLabel("Returned kg, Blue").fill("3");
+  await expect(page.getByLabel("Wastage", { exact: true })).toHaveText("0.100 kg");
+
+  await page.getByLabel("Returned kg, Blue").fill("");
+  await page.getByLabel("Issued kg, Blue").fill("1.5");
+  await page.getByLabel("Pala, Blue").fill("");
+  await expect(
+    page.getByText(/Less than one Pala: all 1\.500 kg of Blue Thaan 1 becomes wastage/).first(),
+  ).toBeVisible();
+
+  // A new Thaan row starts with the last colour.
+  await page.getByRole("button", { name: "Add Thaan" }).click();
+  await expect(page.getByLabel("Colour, row 2")).toHaveValue("Blue");
 });
 
 test("sizes can be left out of a marker with 0 pieces per Pala, but not all of them", async ({ page }) => {
@@ -149,8 +194,9 @@ test("sizes can be left out of a marker with 0 pieces per Pala, but not all of t
 
   // 10 kg at 2.130 kg per Pala → 4 Pala, all of it size S.
   await page.getByLabel("Measured Pala weight").fill("2.130");
-  await page.getByLabel("Colour", { exact: true }).fill("Blue");
-  await page.getByLabel("Thaan number, row 1").fill("TH-010");
-  await page.getByLabel("Issued kg, Thaan TH-010").fill("10");
-  await expect(page.getByRole("complementary", { name: "Cutting summary" })).toContainText(/S\s*12\s*M\s*0\s*L\s*0\s*XL\s*0/);
+  await page.getByLabel("Colour, row 1").fill("Blue");
+  await page.getByLabel("Issued kg, Blue").fill("10");
+  await expect(page.getByRole("complementary", { name: "Cutting summary" })).toContainText(
+    /S\s*12\s*M\s*0\s*L\s*0\s*XL\s*0/,
+  );
 });

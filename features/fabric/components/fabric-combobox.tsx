@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { formatQty } from "../lib/format";
 import type { FabricOption } from "../types/fabric.types";
 
-/** Type-to-search fabric picker; matches on name or code. Empty value = none selected. */
+/** Type-to-search fabric picker by name. Empty value = none selected. */
 export function FabricCombobox({
   id,
   fabrics,
@@ -42,7 +42,7 @@ export function FabricCombobox({
       items={fabrics}
       value={selected}
       onValueChange={(fabric) => onChange(fabric?.id ?? "")}
-      itemToStringLabel={(fabric) => `${fabric.name} · ${fabric.code}`}
+      itemToStringLabel={(fabric) => fabric.name}
       isItemEqualToValue={(a, b) => a.id === b.id}
     >
       <ComboboxInput
@@ -58,10 +58,7 @@ export function FabricCombobox({
         <ComboboxList>
           {(fabric: FabricOption) => (
             <ComboboxItem key={fabric.id} value={fabric}>
-              <span className="min-w-0 flex-1 truncate">
-                {fabric.name}
-                <span className="ml-1.5 text-xs text-muted-foreground">{fabric.code}</span>
-              </span>
+              <span className="min-w-0 flex-1 truncate">{fabric.name}</span>
               <span className="text-xs text-muted-foreground tabular-nums">
                 {formatQty(fabric.balance, fabric.unit)}
               </span>

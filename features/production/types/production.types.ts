@@ -53,12 +53,6 @@ export interface ArticleInput {
   active: boolean;
 }
 
-export interface SizeTemplate {
-  id: string;
-  name: string;
-  sizes: string[];
-}
-
 export interface Karigar {
   id: string;
   number: number;
@@ -195,8 +189,10 @@ export interface BatchRoll {
   id: string;
   thaan: string;
   issuedKg: string;
-  returnedKg: string;
+  /** Null until entered or posted: finalize works it out. */
+  returnedKg: string | null;
   confirmedLayers: number | null;
+  note: string | null;
   status: RollStatus;
   estimatedPala: number | null;
   confirmedPala: number | null;
@@ -258,7 +254,15 @@ export interface CuttingDraftInput {
   colours: {
     id?: string;
     name: string;
-    rolls: { id?: string; thaan: string; issuedKg: string; returnedKg: string; confirmedLayers: number | null }[];
+    /** A Thaan without a number is numbered by the API; a null return is worked out on finalize. */
+    rolls: {
+      id?: string;
+      thaan?: string;
+      issuedKg: string;
+      returnedKg: string | null;
+      confirmedLayers: number | null;
+      note: string | null;
+    }[];
   }[];
   saveAsDefault: boolean;
 }
@@ -271,6 +275,8 @@ export interface CreateLotInput {
   targetQuantity: number | null;
   notes: string | null;
   cutting?: CuttingDraftInput;
+  /** Also issue or finalize the new cutting, in the same request. */
+  action?: "issue" | "finalize";
 }
 
 export interface UpdateLotInput {

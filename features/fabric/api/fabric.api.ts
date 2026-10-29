@@ -4,9 +4,9 @@ import type {
   AdjustmentInput,
   Fabric,
   FabricFilters,
-  FabricInput,
   FabricOption,
   FabricPage,
+  FabricUpdateInput,
   Inward,
   InwardFilters,
   InwardInput,
@@ -45,11 +45,7 @@ export const fabricApi = {
     return (await unwrap(api.get<ApiSuccess<{ fabric: Fabric }>>(`/fabrics/${id}`, { signal }))).fabric;
   },
 
-  async create(input: FabricInput): Promise<Fabric> {
-    return (await unwrap(api.post<ApiSuccess<{ fabric: Fabric }>>("/fabrics", input))).fabric;
-  },
-
-  async update({ id, ...input }: FabricInput & { id: string }): Promise<Fabric> {
+  async update({ id, ...input }: FabricUpdateInput & { id: string }): Promise<Fabric> {
     return (await unwrap(api.put<ApiSuccess<{ fabric: Fabric }>>(`/fabrics/${id}`, input))).fabric;
   },
 

@@ -1,3 +1,4 @@
+import { todayISO } from "@/features/fabric/lib/format";
 import { api } from "@/lib/api-client";
 
 type Cell = string | number | null | undefined;
@@ -25,7 +26,8 @@ function saveBlob(blob: Blob, filename: string) {
 
 /** Downloads rows already in the browser (e.g. the selected rows). */
 export function downloadCsv(name: string, header: string[], rows: Cell[][]) {
-  const stamp = new Date().toISOString().slice(0, 10);
+  // The factory's date, like the server's file names, not UTC's.
+  const stamp = todayISO();
   // BOM so spreadsheet apps read the file as UTF-8.
   saveBlob(new Blob([`﻿${toCsv(header, rows)}`], { type: "text/csv;charset=utf-8" }), `${name}-${stamp}.csv`);
 }

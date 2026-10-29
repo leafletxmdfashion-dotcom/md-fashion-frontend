@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowDownToLine, ArrowUpFromLine, History, Package, ScrollText, Wallet } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, History, Package, Pencil, ScrollText, Wallet } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import { DataTable, useDataTableState, type DataColumn } from "@/components/data-table/data-table";
 import { EmptyState } from "@/components/states";
@@ -10,6 +11,8 @@ import { StatusChip, type StatusTone } from "@/components/status-chip";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
+import { hasPermission } from "@/features/auth/lib/permissions";
 import { ApiError } from "@/lib/api-client";
 import { downloadServerCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
@@ -27,6 +30,7 @@ import {
   UNIT_NAME,
 } from "../lib/format";
 import type { Fabric, FabricUnit, Movement, MovementPage, MovementType } from "../types/fabric.types";
+import { EditFabricDialog } from "./edit-fabric-dialog";
 import { FabricCombobox } from "./fabric-combobox";
 import { FabricPage } from "./fabric-page";
 
@@ -211,6 +215,7 @@ function LedgerStats({
   to,
   refreshing,
   failed,
+  onEdit,
 }: {
   fabricId: string | undefined;
   fabric: Fabric | undefined;
@@ -221,6 +226,8 @@ function LedgerStats({
   refreshing: boolean;
   /** The ledger failed to load: the table shows the error and its retry; no figures to show. */
   failed: boolean;
+  /** Opens the fabric's edit form; absent without fabric.manage. */
+  onEdit?: () => void;
 }) {
   const grid = cn("grid grid-cols-2 gap-3 transition-opacity lg:grid-cols-4", refreshing && "opacity-60");
   const stock = useFabricList({ page: 1, pageSize: 1 }).data?.summary;
@@ -239,6 +246,12 @@ function LedgerStats({
           <span className="text-[13px] text-muted-foreground">
             {fabric.code} · {UNIT_NAME[fabric.unit]}
           </span>
+          {onEdit ? (
+            <Button variant="ghost" size="sm" className="ml-auto" onClick={onEdit}>
+              <Pencil aria-hidden />
+              Edit fabric
+            </Button>
+          ) : null}
         </div>
         <div className={grid}>
           <StatCard label="Opening" icon={History} value={formatQty(summary.opening, fabric.unit)} context={period} />
@@ -259,7 +272,13 @@ function LedgerStats({
             icon={Package}
             value={formatQty(summary.closing, fabric.unit)}
             tone={to ? "default" : STOCK_TONE[state]}
-            context={to ? `On ${formatDate(to)}` : `Worth ${formatMoney(fabric.stockValue)}${reorder}`}
+            context={
+              to
+                ? `On ${formatDate(to)}`
+                : fabric.stockValue != null
+                  ? `Worth ${formatMoney(fabric.stockValue)}${reorder}`
+                  : reorder.replace(/^ · /, "") || undefined
+            }
           />
         </div>
       </section>
@@ -283,15 +302,14 @@ function LedgerStats({
         context="Reversals, reductions"
       />
       <StatCard
-        label="Stock value"
+        label={stock.stockValue != null ? "Stock value" : "Fabrics"}
         icon={Wallet}
-        value={formatMoney(stock.stockValue)}
+        value={stock.stockValue != null ? formatMoney(stock.stockValue) : formatNumber(stock.fabrics)}
         context={
           stock.reorder > 0
             ? `${stock.reorder} fabric${stock.reorder === 1 ? "" : "s"} need reorder`
             : `${stock.fabrics} fabric${stock.fabrics === 1 ? "" : "s"}, none need reorder`
         }
-        href={stock.reorder > 0 ? "/fabric?stock=low" : "/fabric"}
       />
     </section>
   );
@@ -311,7 +329,9 @@ function StatsSkeleton({ label, heading = false }: { label: string; heading?: bo
 }
 
 export function FabricLedger() {
+  const { data: user } = useCurrentUser();
   const fabrics = useFabricOptions();
+  const [editing, setEditing] = useState(0);
   // `fabric` (the picked fabric's id) is the page's own URL key; links point here with it.
   const table = useDataTableState(COLUMNS, ["fabric"]);
   const { fabric: fabricId, ...columnParams } = table.params;
@@ -358,6 +378,7 @@ export function FabricLedger() {
             to={to}
             refreshing={movements.isPlaceholderData}
             failed={movements.isError}
+            onEdit={hasPermission(user, "fabric.manage") ? () => setEditing(Date.now()) : undefined}
           />
         )}
 
@@ -420,14 +441,19 @@ export function FabricLedger() {
                     Open purchase {inwardNumber(movement.inward.number)}
                   </DropdownMenuItem>
                 ) : null}
-                <DropdownMenuItem render={<Link href={`/fabric?q=${movement.fabric.code}`} />}>
-                  Open in Fabric Master
-                </DropdownMenuItem>
               </>
             )}
           />
         )}
       </div>
+      {editing && fabricId ? (
+        <EditFabricDialog
+          key={editing}
+          fabricId={fabricId}
+          open
+          onOpenChange={(open) => (open ? undefined : setEditing(0))}
+        />
+      ) : null}
     </FabricPage>
   );
 }

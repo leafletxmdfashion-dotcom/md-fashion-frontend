@@ -26,10 +26,21 @@ const BATCH_STATUS_OPTIONS = (Object.keys(BATCH_STATUS) as BatchStatus[]).map((v
 
 const BATCH_COLUMNS: DataColumn<BatchListItem>[] = [
   {
+    id: "date",
+    header: "Date",
+    className: "hidden sm:table-cell",
+    sortable: true,
+    filter: { type: "date" },
+    skeleton: { width: "w-20" },
+    csv: (batch) => batch.cuttingDate,
+    cell: (batch) => <span className="whitespace-nowrap text-muted-foreground">{formatDate(batch.cuttingDate)}</span>,
+  },
+  {
     id: "number",
     header: "Cutting no.",
     sortable: true,
     hideable: false,
+    filter: { type: "number" },
     skeleton: { sub: true, width: "w-20" },
     csv: (batch) => cutNumber(batch.number),
     cell: (batch) => (
@@ -41,7 +52,7 @@ const BATCH_COLUMNS: DataColumn<BatchListItem>[] = [
         >
           {cutNumber(batch.number)}
         </Link>
-        <p className="text-xs text-muted-foreground">{formatDate(batch.cuttingDate)}</p>
+        <p className="text-xs text-muted-foreground sm:hidden">{formatDate(batch.cuttingDate)}</p>
       </>
     ),
   },

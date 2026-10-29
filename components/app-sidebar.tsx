@@ -30,18 +30,19 @@ export function AppSidebar({ user }: { user: CurrentUser }) {
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-0 p-0">
         {/* Same height as the top bar so their bottom borders form one line. */}
-        <div className="flex h-14 items-center border-b border-sidebar-border px-3 md:h-16 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+        {/* Same height as the top bar so their bottom borders form one line. The lockup and the
+            monogram cross-fade in place while the sidebar folds, instead of swapping. */}
+        <div className="flex h-14 items-center overflow-hidden border-b border-sidebar-border px-3 md:h-16">
           <Link
             href="/dashboard"
             aria-label="MD Fashion Center, go to dashboard"
-            className="flex min-w-0 flex-1 items-center rounded-md outline-none group-data-[collapsible=icon]:flex-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            className="relative flex h-11 min-w-0 flex-1 items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
           >
-            {/* Full lockup when expanded, filling the header; the bare monogram when collapsed. */}
-            <BrandLogo className="w-[235px] group-data-[collapsible=icon]:hidden" />
-            <BrandMonogram className="hidden w-9 group-data-[collapsible=icon]:block" />
+            <BrandLogo className="w-[235px] shrink-0 transition-opacity duration-200 group-data-[collapsible=icon]:opacity-0" />
+            <BrandMonogram className="absolute -left-0.5 w-9 opacity-0 transition-opacity duration-200 group-data-[collapsible=icon]:opacity-100" />
           </Link>
         </div>
-        <div className="px-3 pt-3 pb-1 group-data-[collapsible=icon]:px-2">
+        <div className="px-2 pt-3 pb-1">
           <CommandMenu groups={groups} />
         </div>
       </SidebarHeader>

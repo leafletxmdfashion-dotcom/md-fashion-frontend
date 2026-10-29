@@ -3,20 +3,16 @@ import {
   ChartNoAxesCombined,
   ClipboardCheck,
   FileClock,
-  Grid3x3,
   LayoutDashboard,
-  Layers,
   Package,
   PackageCheck,
   PackagePlus,
   RotateCcw,
-  Ruler,
   Scissors,
   ScrollText,
   Settings,
   Shield,
   Shirt,
-  Tags,
   UserRound,
   Users,
   UsersRound,
@@ -45,13 +41,6 @@ export const navigation: NavGroup[] = [
     title: "Fabric",
     items: [
       {
-        title: "Fabric Master",
-        href: "/fabric",
-        icon: Layers,
-        exact: true,
-        permission: "fabric.view",
-      },
-      {
         title: "Purchase / Inward",
         href: "/fabric/purchases",
         icon: PackagePlus,
@@ -75,16 +64,16 @@ export const navigation: NavGroup[] = [
         permission: "production.view",
       },
       {
-        title: "Stitching / Jogadi",
+        title: "Stitching",
         href: "/stitching",
         icon: Shirt,
-        description: "Issue cut pieces to Jogadi teams and receive Good, Rework and Reject.",
+        permission: "stitching.view",
       },
       {
         title: "Rework & Reject",
         href: "/rework",
         icon: RotateCcw,
-        description: "Track rework from pending to completed, and log rejects with reasons.",
+        permission: "stitching.view",
       },
       {
         title: "Packing",
@@ -107,23 +96,6 @@ export const navigation: NavGroup[] = [
     ],
   },
   {
-    title: "Setup / Masters",
-    items: [
-      {
-        title: "Items / Designs",
-        href: "/items",
-        icon: Tags,
-        permission: "production.view",
-      },
-      {
-        title: "Size Templates",
-        href: "/size-templates",
-        icon: Ruler,
-        permission: "production.view",
-      },
-    ],
-  },
-  {
     title: "Workers",
     items: [
       {
@@ -137,7 +109,7 @@ export const navigation: NavGroup[] = [
         title: "Jogadi Teams",
         href: "/jogadi",
         icon: UsersRound,
-        description: "Stitching teams, members and earning split.",
+        permission: "karigar.view",
       },
       {
         title: "Payments",
@@ -160,7 +132,6 @@ export const navigation: NavGroup[] = [
         title: "Reports",
         href: "/reports",
         icon: ChartNoAxesCombined,
-        permission: "reports.view",
         description: "Filterable reports for every stage, with Excel, CSV and PDF export.",
       },
       {
@@ -176,31 +147,23 @@ export const navigation: NavGroup[] = [
         permission: "users.view",
       },
       {
-        title: "Roles",
+        title: "Roles & Permissions",
         href: "/roles",
         icon: Shield,
         permission: "users.view",
-        description: "Roles and who holds them.",
-      },
-      {
-        title: "Permission Matrix",
-        href: "/permissions",
-        icon: Grid3x3,
-        permission: "settings.manage",
-        description: "Grant view, create, edit, finalize and approve rights per role.",
       },
       {
         title: "Audit Log",
         href: "/audit-log",
         icon: FileClock,
-        permission: "settings.manage",
+        permission: "roles.manage",
         description: "Who changed what, when, and why, with old and new values.",
       },
       {
         title: "Settings",
         href: "/settings",
         icon: Settings,
-        permission: "settings.manage",
+        permission: "roles.manage",
         description: "Numbering, thresholds and system defaults.",
       },
     ],

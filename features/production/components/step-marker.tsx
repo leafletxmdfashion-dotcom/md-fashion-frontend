@@ -11,10 +11,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-import { useSizeTemplates } from "../hooks/use-production";
 import { parseScaled } from "../lib/cutting-calc";
 import { microKgText } from "../lib/format";
 import { CellError, Computed, Panel } from "./form-parts";
@@ -36,13 +34,7 @@ function UnitInput({
   );
 }
 
-const SOURCES = [
-  { value: "MEASURED", label: "Weighed", hint: "The cutting master weighs one Pala" },
-  { value: "CALCULATED", label: "Calculated", hint: "Width × marker length × GSM ÷ 1000" },
-] as const;
-
 function PalaWeight({ form, calc, errorAt }: StepProps) {
-  const source = form.watch("marker.weightSource");
   const reps = form.watch("marker.repetitionsPerLayer");
   const [more, setMore] = useState(reps.trim() !== "" && reps.trim() !== "1");
   const { marker } = calc;
@@ -53,60 +45,41 @@ function PalaWeight({ form, calc, errorAt }: StepProps) {
       description="One Pala is one full marker on one layer. Each Thaan is cut into whole Pala of this weight."
     >
       <div className="grid gap-5">
-        <Controller
-          control={form.control}
-          name="marker.weightSource"
-          render={({ field }) => (
-            <div role="radiogroup" aria-label="How the Pala weight is found" className="grid gap-2 sm:grid-cols-2">
-              {SOURCES.map((option) => (
-                <label
-                  key={option.value}
-                  className={cn(
-                    "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
-                    field.value === option.value ? "border-primary bg-primary-soft/40" : "hover:bg-accent/40",
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name={field.name}
-                    className="mt-0.5 size-4 accent-primary"
-                    checked={field.value === option.value}
-                    onChange={() => field.onChange(option.value)}
-                  />
-                  <span>
-                    <span className="block text-[13px] font-medium">{option.label}</span>
-                    <span className="block text-xs text-muted-foreground">{option.hint}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          )}
-        />
-
-        {/* Panaha and layer length are always recorded; the third field depends on how the Pala is weighed. */}
+        {/* Panaha and layer length are recorded; the Pala weight is what the cutting master weighs. */}
         <div className="grid gap-4 sm:grid-cols-3">
           <Field id="marker-width" label="Panaha (usable width)" error={errorAt("marker.widthM")}>
-            <UnitInput id="marker-width" unit="m" placeholder="1.50" error={errorAt("marker.widthM")} {...form.register("marker.widthM")} />
+            <UnitInput
+              id="marker-width"
+              unit="m"
+              placeholder="e.g. 1.50"
+              error={errorAt("marker.widthM")}
+              {...form.register("marker.widthM")}
+            />
           </Field>
           <Field id="marker-length" label="Marker / layer length" error={errorAt("marker.lengthM")}>
-            <UnitInput id="marker-length" unit="m" placeholder="7.10" error={errorAt("marker.lengthM")} {...form.register("marker.lengthM")} />
+            <UnitInput
+              id="marker-length"
+              unit="m"
+              placeholder="e.g. 7.10"
+              error={errorAt("marker.lengthM")}
+              {...form.register("marker.lengthM")}
+            />
           </Field>
-          {source === "MEASURED" ? (
-            <Field id="marker-measured" label="Weight of one Pala" error={errorAt("marker.measuredPalaKg")}>
-              <UnitInput
-                id="marker-measured"
-                unit="kg"
-                placeholder="2.130"
-                error={errorAt("marker.measuredPalaKg")}
-                aria-label="Measured Pala weight"
-                {...form.register("marker.measuredPalaKg")}
-              />
-            </Field>
-          ) : (
-            <Field id="marker-gsm" label="GSM" error={errorAt("marker.gsm")}>
-              <UnitInput id="marker-gsm" unit="g/m²" placeholder="200" error={errorAt("marker.gsm")} {...form.register("marker.gsm")} />
-            </Field>
-          )}
+          <Field
+            id="marker-measured"
+            label="Weight of one Pala"
+            error={errorAt("marker.measuredPalaKg")}
+            description="Weighed by the cutting master"
+          >
+            <UnitInput
+              id="marker-measured"
+              unit="kg"
+              placeholder="e.g. 2.130"
+              error={errorAt("marker.measuredPalaKg")}
+              aria-label="Measured Pala weight"
+              {...form.register("marker.measuredPalaKg")}
+            />
+          </Field>
         </div>
 
         <div
@@ -118,23 +91,15 @@ function PalaWeight({ form, calc, errorAt }: StepProps) {
         >
           <p className="text-[13px]">
             {marker.activePalaKg === null ? (
-              <span className="text-muted-foreground">
-                {source === "MEASURED" ? "Enter the weight of one Pala." : "Enter width, marker length and GSM."}
-              </span>
+              <span className="text-muted-foreground">Enter the weight of one Pala.</span>
             ) : (
               <>
-                Cutting uses <strong className="text-base tabular-nums">{microKgText(marker.activePalaKg)}</strong> per Pala
-                <span className="text-muted-foreground"> · {source === "MEASURED" ? "weighed" : "calculated"}</span>
+                Cutting uses <strong className="text-base tabular-nums">{microKgText(marker.activePalaKg)}</strong> per
+                Pala
+                <span className="text-muted-foreground"> · weighed</span>
               </>
             )}
           </p>
-          {source === "CALCULATED" && marker.differenceKg !== null && marker.differenceKg !== 0n ? (
-            <p className="text-xs text-muted-foreground">
-              Calculated {microKgText(marker.calculatedPalaKg!)} · weighed is{" "}
-              {microKgText(marker.differenceKg < 0n ? -marker.differenceKg : marker.differenceKg)}{" "}
-              {marker.differenceKg > 0n ? "heavier" : "lighter"}
-            </p>
-          ) : null}
         </div>
 
         {more ? (
@@ -157,7 +122,11 @@ function PalaWeight({ form, calc, errorAt }: StepProps) {
             </Field>
           </div>
         ) : (
-          <button type="button" className="justify-self-start text-[13px] font-medium text-link hover:underline" onClick={() => setMore(true)}>
+          <button
+            type="button"
+            className="justify-self-start text-[13px] font-medium text-link hover:underline"
+            onClick={() => setMore(true)}
+          >
             The marker repeats more than once per layer
           </button>
         )}
@@ -166,38 +135,53 @@ function PalaWeight({ form, calc, errorAt }: StepProps) {
   );
 }
 
+const SIZE_SETS = [
+  { label: "S – XL", sizes: ["S", "M", "L", "XL"] },
+  { label: "S – XXL", sizes: ["S", "M", "L", "XL", "XXL"] },
+  { label: "28 – 36", sizes: ["28", "30", "32", "34", "36"] },
+] as const;
+
+const SIZE_SUGGESTIONS = [
+  "XS",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "3XL",
+  "4XL",
+  "Free",
+  "26",
+  "28",
+  "30",
+  "32",
+  "34",
+  "36",
+  "38",
+  "40",
+];
+
 function SizeRatio({ form, calc, errorAt, canSaveDefault }: StepProps & { canSaveDefault: boolean }) {
   const sizes = useFieldArray({ control: form.control, name: "sizes", keyName: "key" });
-  const templates = useSizeTemplates();
   const values = form.watch("sizes");
-  const suggestions = [...new Set((templates.data ?? []).flatMap((template) => template.sizes))];
   const { marker } = calc;
 
-  const applyTemplate = (id: string | null) => {
-    const template = templates.data?.find((item) => item.id === id);
-
-    if (template) sizes.replace(template.sizes.map((label) => ({ label, piecesPerPala: "1", pieceWeightG: "" })));
-  };
+  // One-click size sets the factory uses; any label can still be typed.
+  const applySet = (labels: readonly string[]) =>
+    sizes.replace(labels.map((label) => ({ label, piecesPerPala: "1", pieceWeightG: "" })));
 
   return (
     <Panel
       title="Size ratio"
       description="How many pieces of each size one Pala gives. Piece weights are optional."
       action={
-        (templates.data?.length ?? 0) > 0 ? (
-          <Select items={templates.data!.map((t) => ({ value: t.id, label: t.name }))} value={null} onValueChange={applyTemplate}>
-            <SelectTrigger size="sm" aria-label="Use a size template">
-              <SelectValue placeholder="Use a size template" />
-            </SelectTrigger>
-            <SelectContent>
-              {templates.data!.map((template) => (
-                <SelectItem key={template.id} value={template.id}>
-                  {template.name} · {template.sizes.join(", ")}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : null
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick size sets">
+          {SIZE_SETS.map((set) => (
+            <Button key={set.label} type="button" variant="outline" size="sm" onClick={() => applySet(set.sizes)}>
+              {set.label}
+            </Button>
+          ))}
+        </div>
       }
     >
       {errorAt("sizes") ? <p className="mb-3 text-[13px] text-destructive">{errorAt("sizes")}</p> : null}
@@ -233,8 +217,8 @@ function SizeRatio({ form, calc, errorAt, canSaveDefault }: StepProps & { canSav
                     <SuggestInput
                       {...fieldProps(`size-${index}-label`, errorAt(`sizes.${index}.label`))}
                       aria-label={`Size ${index + 1}`}
-                      placeholder="M"
-                      suggestions={suggestions}
+                      placeholder="e.g. M"
+                      suggestions={SIZE_SUGGESTIONS}
                       value={field.value}
                       onChange={field.onChange}
                       onBlur={field.onBlur}
@@ -279,7 +263,14 @@ function SizeRatio({ form, calc, errorAt, canSaveDefault }: StepProps & { canSav
                 {net === null ? "—" : `${(Number(net) / 1000).toLocaleString("en-IN")} g`}
               </Computed>
               <div className="col-span-2 flex justify-end md:col-span-1">
-                <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move ${name} up`} disabled={index === 0} onClick={() => sizes.move(index, index - 1)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Move ${name} up`}
+                  disabled={index === 0}
+                  onClick={() => sizes.move(index, index - 1)}
+                >
                   <ArrowUp aria-hidden />
                 </Button>
                 <Button
@@ -309,7 +300,12 @@ function SizeRatio({ form, calc, errorAt, canSaveDefault }: StepProps & { canSav
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-        <Button type="button" variant="outline" size="sm" onClick={() => sizes.append({ label: "", piecesPerPala: "1", pieceWeightG: "" })}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => sizes.append({ label: "", piecesPerPala: "1", pieceWeightG: "" })}
+        >
           <Plus aria-hidden />
           Add size
         </Button>
@@ -319,7 +315,9 @@ function SizeRatio({ form, calc, errorAt, canSaveDefault }: StepProps & { canSav
             <span className="text-muted-foreground">
               {" "}
               · {microKgText(marker.netPalaKg)} of garment
-              {marker.scrapPerPalaKg !== null ? `, about ${microKgText(marker.scrapPerPalaKg)} marker scrap (for information)` : ""}
+              {marker.scrapPerPalaKg !== null
+                ? `, about ${microKgText(marker.scrapPerPalaKg)} marker scrap (for information)`
+                : ""}
             </span>
           ) : null}
         </p>
@@ -331,7 +329,11 @@ function SizeRatio({ form, calc, errorAt, canSaveDefault }: StepProps & { canSav
           name="saveAsDefault"
           render={({ field }) => (
             <div className="mt-4 flex items-center gap-2">
-              <Checkbox id="save-default" checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} />
+              <Checkbox
+                id="save-default"
+                checked={field.value}
+                onCheckedChange={(checked) => field.onChange(checked === true)}
+              />
               <Label htmlFor="save-default" className="text-[13px] font-normal">
                 Remember this Pala weight and size ratio for this item
               </Label>

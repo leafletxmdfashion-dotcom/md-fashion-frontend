@@ -74,8 +74,10 @@ function applyTable(
 
 export function UsersTable() {
   const { data: currentUser } = useCurrentUser();
-  const users = useUsers();
-  const roles = useRoles();
+  // RequirePermission shows the no-access state; skip requests the API would refuse.
+  const canView = hasPermission(currentUser, "users.view");
+  const users = useUsers(canView);
+  const roles = useRoles(canView);
   const canManage = hasPermission(currentUser, "users.manage");
 
   // Mirrors the API hierarchy so we only offer actions likely to succeed (UX only).

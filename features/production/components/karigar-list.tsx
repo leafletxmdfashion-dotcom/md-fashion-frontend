@@ -32,7 +32,7 @@ import { hasPermission } from "@/features/auth/lib/permissions";
 import { applyServerError } from "@/lib/form-errors";
 
 import { useKarigars, useSaveKarigar } from "../hooks/use-production";
-import { CATEGORY_LABEL, moneyText, PAY_MODE_LABEL, PAY_UNIT } from "../lib/format";
+import { CATEGORY_LABEL, karigarCode, moneyText, PAY_MODE_LABEL, PAY_UNIT } from "../lib/format";
 import type { Karigar, KarigarCategory, PayMode } from "../types/production.types";
 import { ProductionPage } from "./production-pages";
 
@@ -44,7 +44,11 @@ const PAY_MODES = Object.keys(PAY_MODE_LABEL) as PayMode[];
 
 const schema = z.object({
   name: z.string().trim().min(1, "Name is required.").max(100),
-  phone: z.string().trim().max(20),
+  phone: z
+    .string()
+    .trim()
+    .max(20, "Keep the phone under 20 characters.")
+    .regex(/^$|^\+?[\d\s()-]{7,}$/, "Enter a phone number, digits only."),
   category: z.enum(["CUTTING_MASTER", "TAILOR", "HELPER", "OTHER"]),
   payMode: z.enum(["PER_PIECE", "PER_PALA", "PER_KG", "FIXED_JOB", "SALARY"]),
   payRate: z.number({ invalid_type_error: "Enter the rate." }).min(0, "Rate cannot be negative."),
@@ -215,7 +219,7 @@ function KarigarDialog({ karigar, onOpenChange }: { karigar?: Karigar; onOpenCha
   );
 }
 
-function columns(showPay: boolean): DataColumn<Karigar>[] {
+function columns(showPay: boolean, showEarned: boolean): DataColumn<Karigar>[] {
   const all: (DataColumn<Karigar> | null)[] = [
     {
       id: "name",
@@ -228,7 +232,7 @@ function columns(showPay: boolean): DataColumn<Karigar>[] {
       cell: (karigar) => (
         <>
           <p className="font-medium">{karigar.name}</p>
-          <p className="text-xs text-muted-foreground">{karigar.phone ?? `K-${String(karigar.number).padStart(3, "0")}`}</p>
+          <p className="text-xs text-muted-foreground">{karigar.phone ?? karigarCode(karigar.number)}</p>
         </>
       ),
     },
@@ -258,7 +262,7 @@ function columns(showPay: boolean): DataColumn<Karigar>[] {
         </span>
       ),
     },
-    showPay
+    showEarned
       ? {
           id: "earned",
           header: "Earned",
@@ -292,15 +296,18 @@ function columns(showPay: boolean): DataColumn<Karigar>[] {
   return all.flatMap((column) => (column ? [column] : []));
 }
 
-const WITH_PAY = columns(true);
+// Rates show with karigar.manage or costing.view; lifetime earnings with costing.view only.
+const WITH_PAY = columns(true, true);
 
-const WITHOUT_PAY = columns(false);
+const RATES_ONLY = columns(true, false);
+
+const WITHOUT_PAY = columns(false, false);
 
 export function KarigarList() {
   const { data: user } = useCurrentUser();
   const canManage = hasPermission(user, "karigar.manage");
-  const showPay = canManage || hasPermission(user, "costing.view");
-  const cols = showPay ? WITH_PAY : WITHOUT_PAY;
+  const canSeeCost = hasPermission(user, "costing.view");
+  const cols = canSeeCost ? WITH_PAY : canManage ? RATES_ONLY : WITHOUT_PAY;
   const table = useDataTableState(WITH_PAY);
   const list = useKarigars({ ...table.params, page: table.page, pageSize: table.pageSize });
   const [dialog, setDialog] = useState<{ karigar?: Karigar; key: number } | null>(null);
