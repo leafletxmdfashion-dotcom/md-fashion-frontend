@@ -23,6 +23,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Stop `next dev` from writing AGENTS.md for AI coding agents.
   agentRules: false,
+  experimental: {
+    agentUpgrade: "security",
+  },
   turbopack: {
     rules: {
       "*.css": {
