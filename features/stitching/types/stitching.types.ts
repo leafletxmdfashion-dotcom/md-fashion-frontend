@@ -41,8 +41,8 @@ export interface AvailableLot {
   available: number;
 }
 
+/** One size of a lot, every colour together (stitching works in bulk). */
 export interface BalanceRow {
-  colour: string;
   size: string;
   cut: number;
   unissued: number;
@@ -57,7 +57,7 @@ export interface BalanceRow {
 export interface LotBalance {
   lot: { id: string; lotNumber: string; articleName: string; status: string };
   rows: BalanceRow[];
-  totals: Omit<BalanceRow, "colour" | "size">;
+  totals: Omit<BalanceRow, "size">;
 }
 
 export interface IssueListItem {
@@ -146,7 +146,7 @@ export interface IssueInput {
   rate: number;
   issueDate: string;
   notes: string | null;
-  teams: { teamId: string; lines: { colour: string; sizeLabel: string; quantity: number }[] }[];
+  teams: { teamId: string; lines: { colour?: string; sizeLabel: string; quantity: number }[] }[];
 }
 
 export interface ReceiptInput {

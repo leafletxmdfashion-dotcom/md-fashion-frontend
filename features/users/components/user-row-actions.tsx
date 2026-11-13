@@ -32,9 +32,10 @@ import {
 } from "../hooks/use-users";
 import type { IssuedInvitation, ManagedUser, Role } from "../types/user.types";
 import { InvitationLink } from "./invite-user-dialog";
+import { SetPasswordDialog } from "./set-password-dialog";
 import { RoleSelect } from "./role-select";
 
-type Panel = "role" | "disable" | "sessions" | "invitation" | null;
+type Panel = "role" | "disable" | "sessions" | "invitation" | "password" | null;
 
 function errorToast(fallback: string) {
   return (error: unknown) => toast.error(error instanceof ApiError ? error.message : fallback);
@@ -58,9 +59,7 @@ export function UserRowActions({ user, roles }: { user: ManagedUser; roles: Role
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${user.name}`} />}
-        >
+        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${user.name}`} />}>
           <MoreHorizontal aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-44">
@@ -79,6 +78,7 @@ export function UserRowActions({ user, roles }: { user: ManagedUser; roles: Role
               >
                 Resend invitation
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setPanel("password")}>Set a password instead</DropdownMenuItem>
               {user.invitation ? (
                 <DropdownMenuItem
                   variant="destructive"
@@ -103,6 +103,9 @@ export function UserRowActions({ user, roles }: { user: ManagedUser; roles: Role
               >
                 Change role
               </DropdownMenuItem>
+              {user.status !== "DISABLED" ? (
+                <DropdownMenuItem onClick={() => setPanel("password")}>Set a new password</DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem disabled={user.activeSessionCount === 0} onClick={() => setPanel("sessions")}>
                 Sign out all sessions
               </DropdownMenuItem>
@@ -148,10 +151,13 @@ export function UserRowActions({ user, roles }: { user: ManagedUser; roles: Role
               onClick={() =>
                 changeRole.mutate(
                   { userId: user.id, roleKey },
-                  { onSuccess: () => {
-                    toast.success("Role updated.");
-                    close();
-                  }, onError: errorToast("Could not change role.") },
+                  {
+                    onSuccess: () => {
+                      toast.success("Role updated.");
+                      close();
+                    },
+                    onError: errorToast("Could not change role."),
+                  },
                 )
               }
             >
@@ -199,7 +205,9 @@ export function UserRowActions({ user, roles }: { user: ManagedUser; roles: Role
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Sign out {user.name} everywhere?</DialogTitle>
-            <DialogDescription>Ends all {user.activeSessionCount} active sessions. They can sign in again.</DialogDescription>
+            <DialogDescription>
+              Ends all {user.activeSessionCount} active sessions. They can sign in again.
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={close}>
@@ -234,6 +242,7 @@ export function UserRowActions({ user, roles }: { user: ManagedUser; roles: Role
           {issued ? <InvitationLink invitation={issued} /> : null}
         </DialogContent>
       </Dialog>
+      {panel === "password" ? <SetPasswordDialog user={user} onClose={close} /> : null}
     </>
   );
 }

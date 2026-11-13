@@ -1,19 +1,7 @@
-import { todayISO } from "@/features/fabric/lib/format";
-import { api } from "@/lib/api-client";
+import { api, ApiError, type ApiErrorCode } from "@/lib/api-client";
 
-type Cell = string | number | null | undefined;
-
-/** RFC 4180 cell. Values a spreadsheet would run as a formula get a leading '. */
-function cell(value: Cell): string {
-  if (value === null || value === undefined) return "";
-  let text = String(value);
-  if (typeof value === "string" && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
-  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-export function toCsv(header: string[], rows: Cell[][]): string {
-  return [header, ...rows].map((row) => row.map(cell).join(",")).join("\r\n");
-}
+// Every export is built by the server (same filters, sort and permissions as the list, every
+// matching row); the browser only saves the file it gets back.
 
 function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -24,17 +12,31 @@ function saveBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-/** Downloads rows already in the browser (e.g. the selected rows). */
-export function downloadCsv(name: string, header: string[], rows: Cell[][]) {
-  // The factory's date, like the server's file names, not UTC's.
-  const stamp = todayISO();
-  // BOM so spreadsheet apps read the file as UTF-8.
-  saveBlob(new Blob([`﻿${toCsv(header, rows)}`], { type: "text/csv;charset=utf-8" }), `${name}-${stamp}.csv`);
+/** The API's error from a failed blob response, e.g. "More than 50,000 rows match…". */
+export async function exportError(status: number, body: Blob | undefined): Promise<ApiError> {
+  try {
+    const parsed = JSON.parse((await body?.text()) ?? "") as { error?: { code?: ApiErrorCode; message?: string } };
+    if (parsed.error?.code && parsed.error.message)
+      return new ApiError(status, parsed.error.code, parsed.error.message);
+  } catch {
+    // Not JSON: fall through to the generic message.
+  }
+  return new ApiError(status, "UNKNOWN_ERROR", "Could not export. Please try again.");
 }
 
 /** Downloads a server-built CSV (every row matching `params`), keeping the server's file name. */
-export async function downloadServerCsv(path: string, params: Record<string, string>) {
-  const response = await api.get<Blob>(path, { params, responseType: "blob", timeout: 60_000 });
+export async function downloadServerCsv(path: string, params: Record<string, string | number | undefined>) {
+  const query = Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined && value !== ""));
+  const response = await api.get<Blob>(path, {
+    params: query,
+    responseType: "blob",
+    timeout: 120_000,
+    // Read error bodies here: as a blob they would otherwise lose the server's message.
+    validateStatus: () => true,
+  });
+
+  if (response.status < 200 || response.status >= 300) throw await exportError(response.status, response.data);
+
   const disposition = String(response.headers["content-disposition"] ?? "");
   const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "export.csv";
   saveBlob(response.data, filename);

@@ -37,7 +37,7 @@ export function LoginForm() {
   const login = useLogin();
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { identifier: "", password: "" },
   });
   const { errors, isSubmitting } = form.formState;
 
@@ -58,22 +58,30 @@ export function LoginForm() {
 
   return (
     <>
-      <AuthHeading title="Welcome back" description="Log in to your MD Fashion Center account." />
+      <AuthHeading
+        title="Welcome back"
+        description="Log in to your MD Fashion Center account."
+      />
       <form onSubmit={onSubmit} noValidate className="grid gap-4">
         {errors.root?.server ? (
           <FormAlert>{errors.root.server.message}</FormAlert>
         ) : signedOut ? (
           <FormAlert variant="info">{signedOut}</FormAlert>
         ) : null}
-        <Field id="email" label="Email" error={errors.email?.message}>
+        <Field
+          id="identifier"
+          label="Email or phone"
+          error={errors.identifier?.message}
+        >
           <Input
-            {...fieldProps("email", errors.email?.message)}
-            type="email"
-            autoComplete="email"
-            inputMode="email"
+            {...fieldProps("identifier", errors.identifier?.message)}
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
             autoFocus
-            placeholder="you@company.com"
-            {...form.register("email")}
+            placeholder="you@company.com or 98XXXXXXXX"
+            {...form.register("identifier")}
           />
         </Field>
         <Field

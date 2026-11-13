@@ -464,11 +464,11 @@ function RoleList({
           </div>
         ))}
         <p className="border-t px-3 pt-3 pb-1 text-xs text-muted-foreground">
-          Add staff and give them a role on the{" "}
-          <Link href="/users" className="text-link hover:underline">
-            Users
-          </Link>{" "}
-          page.
+          Give people a login and a role under{" "}
+          <Link href="/karigar?tab=logins" className="text-link hover:underline">
+            Staff &amp; Karigar · Login accounts
+          </Link>
+          .
         </p>
       </nav>
     </>

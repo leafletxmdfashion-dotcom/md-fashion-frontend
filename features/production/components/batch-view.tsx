@@ -17,7 +17,7 @@ import { useSingleSubmit } from "@/hooks/use-single-submit";
 import { ApiError } from "@/lib/api-client";
 
 import { useReverseBatch } from "../hooks/use-production";
-import { BATCH_STATUS, cutNumber, kgText, LOT_STATUS, moneyText } from "../lib/format";
+import { BATCH_STATUS, cutNumber, kgText, lengthText, LOT_STATUS, moneyText } from "../lib/format";
 import type { Batch } from "../types/production.types";
 import { Figure } from "./form-parts";
 
@@ -58,8 +58,8 @@ function ReverseForm({ batch, onDone }: { batch: Batch; onDone: () => void }) {
     <div className="grid gap-3 rounded-lg border border-destructive/30 p-4">
       <p className="text-[13px]">
         Reversing keeps this batch on record and posts linked reversals: consumed and wasted fabric go back to the store
-        with everything still in cutting, fabric cost and the cutting master&apos;s earning are reversed, and its cut pieces
-        are withdrawn. It is blocked if any piece has gone on to stitching.
+        with everything still in cutting, fabric cost and the cutting master&apos;s earning are reversed, and its cut
+        pieces are withdrawn. It is blocked if any piece has gone on to stitching.
       </p>
       {error && error.code !== "VALIDATION_ERROR" ? <FormAlert>{error.message}</FormAlert> : null}
       <Field
@@ -80,7 +80,12 @@ function ReverseForm({ batch, onDone }: { batch: Batch; onDone: () => void }) {
         <Button variant="outline" size="sm" onClick={onDone}>
           Keep batch
         </Button>
-        <Button variant="destructive" size="sm" disabled={reason.trim().length < 3 || reverse.isPending} onClick={submit}>
+        <Button
+          variant="destructive"
+          size="sm"
+          disabled={reason.trim().length < 3 || reverse.isPending}
+          onClick={submit}
+        >
           {reverse.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
           Reverse cutting
         </Button>
@@ -103,24 +108,34 @@ export function BatchView({ batch }: { batch: Batch }) {
       <section className="rounded-lg border bg-card p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-2">
           <StatusChip tone={BATCH_STATUS[batch.status].tone}>{BATCH_STATUS[batch.status].label}</StatusChip>
-          <StatusChip tone={LOT_STATUS[batch.lot.status].tone}>Lot {LOT_STATUS[batch.lot.status].label.toLowerCase()}</StatusChip>
+          <StatusChip tone={LOT_STATUS[batch.lot.status].tone}>
+            Lot {LOT_STATUS[batch.lot.status].label.toLowerCase()}
+          </StatusChip>
         </div>
         <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          <Figure
-            label="Lot"
-            value={
-              <span className="font-mono">{batch.lot.lotNumber}</span>
-            }
-          />
+          <Figure label="Lot" value={<span className="font-mono">{batch.lot.lotNumber}</span>} />
           <Figure label="Item / design" value={batch.lot.article.name} hint={batch.lot.article.code} />
           <Figure label="Fabric" value={batch.lot.fabric.name} hint={batch.lot.fabric.code} />
           <Figure label="Cutting master" value={batch.cuttingMaster?.name ?? "—"} />
           <Figure label="Cutting date" value={formatDate(batch.cuttingDate)} />
           <Figure
-            label="Pala weight"
-            value={kgText(batch.marker.activePalaKg)}
-            hint={batch.marker.weightSource === "MEASURED" ? "Measured" : "Calculated"}
+            label={batch.lot.fabric.unit === "METER" ? "Pala length" : "Pala weight"}
+            value={kgText(batch.marker.activePalaKg, batch.lot.fabric.unit)}
+            hint={[
+              batch.marker.weightSource === "MEASURED" ? "Measured" : "Calculated",
+              batch.marker.palaAltValue
+                ? `also ${kgText(batch.marker.palaAltValue, batch.lot.fabric.unit === "METER" ? "KG" : "METER")}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           />
+          {batch.marker.widthM ? (
+            <Figure label="Panaha" value={lengthText(batch.marker.widthM, batch.marker.widthUnit)} />
+          ) : null}
+          {batch.marker.lengthM ? (
+            <Figure label="Layer length" value={lengthText(batch.marker.lengthM, batch.marker.lengthUnit)} />
+          ) : null}
         </dl>
         {batch.notes ? <p className="mt-4 text-[13px] text-muted-foreground">{batch.notes}</p> : null}
       </section>
@@ -128,22 +143,35 @@ export function BatchView({ batch }: { batch: Batch }) {
       {batch.posted ? (
         <Card title="Material reconciliation">
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-            <Figure label="Issued" value={kgText(batch.posted.issuedKg)} />
-            <Figure label="Consumed" value={kgText(batch.posted.consumedKg)} hint={`${batch.posted.pala} Pala`} />
-            <Figure label="Returned" value={kgText(batch.posted.returnedKg)} />
-            <Figure label="Wastage" value={kgText(batch.posted.wastageKg)} hint="Pala remainder" />
+            <Figure label="Issued" value={kgText(batch.posted.issuedKg, batch.lot.fabric.unit)} />
+            <Figure
+              label="Consumed"
+              value={kgText(batch.posted.consumedKg, batch.lot.fabric.unit)}
+              hint={`${batch.posted.pala} Pala`}
+            />
+            <Figure label="Returned" value={kgText(batch.posted.returnedKg, batch.lot.fabric.unit)} />
+            <Figure
+              label="Wastage"
+              value={kgText(batch.posted.wastageKg, batch.lot.fabric.unit)}
+              hint="Pala remainder"
+            />
             <Figure label="Pieces" value={String(batch.posted.acceptedPieces)} />
             {batch.costs ? (
               <Figure
                 label="Fabric cost"
                 value={moneyText(batch.costs.fabricCost)}
-                hint={batch.costs.earningAmount ? `Cutting labour ${moneyText(batch.costs.earningAmount)}` : "No per-job labour"}
+                hint={
+                  batch.costs.earningAmount
+                    ? `Cutting labour ${moneyText(batch.costs.earningAmount)}`
+                    : "No per-job labour"
+                }
               />
             ) : null}
           </dl>
           <p className="mt-4 text-xs text-muted-foreground">
             Finalized {format(new Date(batch.posted.finalizedAt), "d MMM yyyy, h:mm a")}
-            {batch.posted.finalizedBy ? ` by ${batch.posted.finalizedBy}` : ""} · calculation v{batch.posted.calculationVersion}
+            {batch.posted.finalizedBy ? ` by ${batch.posted.finalizedBy}` : ""} · calculation v
+            {batch.posted.calculationVersion}
           </p>
         </Card>
       ) : null}
@@ -169,16 +197,16 @@ export function BatchView({ batch }: { batch: Batch }) {
                   <tr key={roll.id} className="border-b last:border-b-0">
                     <td className="py-2">{colour.name}</td>
                     <td className="py-2 font-mono text-xs">{roll.thaan}</td>
-                    <td className="py-2 text-right tabular-nums">{kgText(roll.issuedKg)}</td>
-                    <td className="py-2 text-right tabular-nums">{kgText(roll.returnedKg)}</td>
+                    <td className="py-2 text-right tabular-nums">{kgText(roll.issuedKg, batch.lot.fabric.unit)}</td>
+                    <td className="py-2 text-right tabular-nums">{kgText(roll.returnedKg, batch.lot.fabric.unit)}</td>
                     <td className="py-2 text-right tabular-nums">{roll.estimatedPala ?? "—"}</td>
                     <td className="py-2 text-right tabular-nums">
                       {repetitions > 1 ? `${roll.confirmedLayers ?? "—"} / ` : ""}
                       {roll.confirmedPala ?? "—"}
                       {roll.note ? <span className="block text-xs text-muted-foreground">{roll.note}</span> : null}
                     </td>
-                    <td className="py-2 text-right tabular-nums">{kgText(roll.consumedKg)}</td>
-                    <td className="py-2 text-right tabular-nums">{kgText(roll.wastageKg)}</td>
+                    <td className="py-2 text-right tabular-nums">{kgText(roll.consumedKg, batch.lot.fabric.unit)}</td>
+                    <td className="py-2 text-right tabular-nums">{kgText(roll.wastageKg, batch.lot.fabric.unit)}</td>
                   </tr>
                 )),
               )}
@@ -222,7 +250,9 @@ export function BatchView({ batch }: { batch: Batch }) {
                       <td className="py-2 text-right font-semibold tabular-nums">
                         {rows.reduce((sum, row) => sum + row.accepted, 0)}
                       </td>
-                      <td className="py-2 text-right tabular-nums">{rows.reduce((sum, row) => sum + row.available, 0)}</td>
+                      <td className="py-2 text-right tabular-nums">
+                        {rows.reduce((sum, row) => sum + row.available, 0)}
+                      </td>
                     </tr>
                   );
                 })}

@@ -20,7 +20,7 @@ import { moneyText } from "@/features/production/lib/format";
 import { ApiError } from "@/lib/api-client";
 
 import { useIssue, useReverseIssue, useReverseReceipt } from "../hooks/use-stitching";
-import { issueNumber, pieces, receiptNumber } from "../lib/format";
+import { issueNumber, lineLabel, pieces, receiptNumber } from "../lib/format";
 import type { IssueDetail } from "../types/stitching.types";
 import { ReceiveDialog } from "./receive-dialog";
 
@@ -194,7 +194,7 @@ export function IssueSheet({
                   <table className="w-full">
                     <thead className="bg-muted/40 text-xs text-muted-foreground">
                       <tr>
-                        <th className="px-4 py-2 text-left font-medium">Colour · size</th>
+                        <th className="px-4 py-2 text-left font-medium">Size</th>
                         <th className="px-4 py-2 text-right font-medium">Issued</th>
                         <th className="px-4 py-2 text-right font-medium">Received</th>
                         <th className="px-4 py-2 text-right font-medium">With team</th>
@@ -204,7 +204,7 @@ export function IssueSheet({
                       {issue.lines.map((line) => (
                         <tr key={line.id}>
                           <td className="px-4 py-2">
-                            {line.colour} <span className="text-muted-foreground">{line.sizeLabel}</span>
+                            {lineLabel(line.colour, line.sizeLabel)}
                           </td>
                           <td className="px-4 py-2 text-right tabular-nums">{line.quantity}</td>
                           <td className="px-4 py-2 text-right tabular-nums">{line.received}</td>
@@ -244,7 +244,7 @@ export function IssueSheet({
                       {receipt.lines.map((line) => (
                         <li key={`${line.colour}-${line.sizeLabel}`} className="flex justify-between gap-3">
                           <span>
-                            {line.colour} <span className="text-muted-foreground">{line.sizeLabel}</span>
+                            {lineLabel(line.colour, line.sizeLabel)}
                           </span>
                           <span className="text-right tabular-nums">
                             {line.good} Good

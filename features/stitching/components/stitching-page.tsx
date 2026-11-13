@@ -32,7 +32,6 @@ const COLUMNS: DataColumn<IssueListItem>[] = [
     sortable: true,
     filter: { type: "date" },
     skeleton: { width: "w-20" },
-    csv: (issue) => issue.date,
     cell: (issue) => <span className="whitespace-nowrap text-muted-foreground">{formatDate(issue.date)}</span>,
   },
   {
@@ -41,7 +40,6 @@ const COLUMNS: DataColumn<IssueListItem>[] = [
     sortable: true,
     filter: { type: "number" },
     skeleton: { width: "w-14" },
-    csv: (issue) => issueNumber(issue.number),
     cell: (issue) => <span className="font-mono text-xs">{issueNumber(issue.number)}</span>,
   },
   {
@@ -51,7 +49,6 @@ const COLUMNS: DataColumn<IssueListItem>[] = [
     hideable: false,
     filter: { type: "text", placeholder: "Lot or item contains…" },
     skeleton: { sub: true, width: "w-24" },
-    csv: (issue) => `${issue.lot.lotNumber} ${issue.lot.articleName}`,
     cell: (issue) => (
       <>
         <p className="font-medium">{issue.lot.lotNumber}</p>
@@ -69,7 +66,6 @@ const COLUMNS: DataColumn<IssueListItem>[] = [
     sortable: true,
     filter: { type: "text", placeholder: "Team contains…" },
     skeleton: { sub: true, width: "w-24" },
-    csv: (issue) => issue.team.name,
     cell: (issue) => (
       <>
         <p>{issue.team.name}</p>
@@ -88,7 +84,6 @@ const COLUMNS: DataColumn<IssueListItem>[] = [
     sortable: true,
     filter: { type: "number" },
     skeleton: { width: "w-10" },
-    csv: (issue) => issue.issued,
     cell: (issue) => <span className="tabular-nums">{issue.issued}</span>,
   },
   {
@@ -99,7 +94,6 @@ const COLUMNS: DataColumn<IssueListItem>[] = [
     sortable: true,
     filter: { type: "number" },
     skeleton: { width: "w-10" },
-    csv: (issue) => issue.wip,
     cell: (issue) => (
       <span className={cn("font-medium tabular-nums", issue.wip === 0 && "text-muted-foreground")}>{issue.wip}</span>
     ),
@@ -118,7 +112,6 @@ const COLUMNS: DataColumn<IssueListItem>[] = [
       ],
     },
     skeleton: { width: "w-16" },
-    csv: (issue) => (issue.status === "REVERSED" ? "Reversed" : issue.wip > 0 ? "With team" : "Done"),
     cell: (issue) =>
       issue.status === "REVERSED" ? (
         <StatusChip tone="danger">Reversed</StatusChip>
@@ -162,7 +155,7 @@ function LotBalancePanel({ lotId, onClear }: { lotId: string; onClear: () => voi
         <table className="w-full min-w-[34rem] text-[13px]">
           <thead className="text-xs text-muted-foreground">
             <tr>
-              <th className="px-4 py-2 text-left font-medium">Colour · size</th>
+              <th className="px-4 py-2 text-left font-medium">Size</th>
               {columns.map((column) => (
                 <th key={column} className="px-3 py-2 text-right font-medium">
                   {LABEL[column]}
@@ -172,10 +165,8 @@ function LotBalancePanel({ lotId, onClear }: { lotId: string; onClear: () => voi
           </thead>
           <tbody className="divide-y">
             {data.rows.map((row) => (
-              <tr key={`${row.colour}-${row.size}`}>
-                <td className="px-4 py-1.5">
-                  {row.colour} {row.size}
-                </td>
+              <tr key={row.size}>
+                <td className="px-4 py-1.5 font-medium">{row.size}</td>
                 {columns.map((column) => (
                   <td
                     key={column}
@@ -327,8 +318,8 @@ export function StitchingPage() {
                 ? [{ label: "Lot", value: "Selected lot", onClear: () => table.setFilters({ lotId: "" }) }]
                 : []),
             ]}
-            exportName="stitching-issues"
-            bulkActions={() => null}
+            exportPath="/stitching/issues/export"
+            exportParams={params}
             onRowClick={(issue) => setSelected(issue.id)}
             rowActions={(issue) => (
               <>

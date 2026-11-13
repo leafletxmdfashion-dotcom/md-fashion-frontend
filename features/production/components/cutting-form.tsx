@@ -33,10 +33,11 @@ import {
   useSaveBatch,
 } from "../hooks/use-production";
 import { calculateBatch, parseScaled, type Issue } from "../lib/cutting-calc";
-import { cutNumber, microKgText } from "../lib/format";
+import { cutNumber, microKgText, type QtyUnit } from "../lib/format";
 import {
   calcInputsOf,
   draftPayloadOf,
+  inchIssues,
   markerValuesOf,
   nameKey,
   onRows,
@@ -119,13 +120,16 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
   useWatch({ control: form.control });
 
   const values = form.getValues();
-  const inputs = calcInputsOf(values);
+  const batch = mode.kind === "edit" ? mode.batch : null;
+  const fabricId = batch ? batch.lot.fabric.id : values.fabricId;
+  const selectedFabric = fabrics.data?.find((option) => option.id === fabricId);
+  // Cutting counts in the fabric's own unit: kg, or metres for fabric bought by the metre.
+  const unit: QtyUnit = (batch?.lot.fabric.unit ?? selectedFabric?.unit) === "METER" ? "METER" : "KG";
+  const inputs = calcInputsOf(values, unit);
   const calc = calculateBatch(inputs.marker, inputs.colours);
   // The calculator speaks in colours and their Thaan; the form shows one row per Thaan.
   const calcIssues = onRows(calc.issues, inputs);
   const calcWarnings = onRows(calc.warnings, inputs);
-  const batch = mode.kind === "edit" ? mode.batch : null;
-  const fabricId = batch ? batch.lot.fabric.id : values.fabricId;
   const canSeeCost = hasPermission(user, "costing.view");
   const fabric = useFabric(canSeeCost && fabricId ? fabricId : undefined);
 
@@ -135,8 +139,6 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
     defaults: hasPermission(user, "production.manage"),
   };
 
-  const kgFabrics = (fabrics.data ?? []).filter((option) => option.unit === "KG");
-  const selectedFabric = fabrics.data?.find((option) => option.id === fabricId);
   const storeKg = selectedFabric ? (parseScaled(String(selectedFabric.balance), 6) ?? 0n) : null;
   const allRolls = values.rolls;
 
@@ -208,6 +210,8 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
   if (!batch && !values.articleName.trim()) formIssues.push({ path: "articleName", message: "Enter the item / design." });
 
   if (!batch && !values.fabricId) formIssues.push({ path: "fabricId", message: "Choose a fabric." });
+
+  formIssues.push(...inchIssues(values));
 
   const masterIssues: Issue[] = values.cuttingMasterId
     ? []
@@ -351,7 +355,7 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
     (item) => ({ step: stepOf(item.path), message: item.message }),
   );
 
-  const stepProps = { form, calc, errorAt };
+  const stepProps = { form, calc, errorAt, unit };
 
   const buttons = (vertical: boolean) => (
     <>
@@ -411,9 +415,8 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
             locked={batch !== null}
             openLots={openLots.data?.lots ?? []}
             matchedLot={matchedLot}
-            articles={articles.data ?? []}
             matchedArticle={matchedArticle}
-            fabrics={kgFabrics}
+            fabrics={fabrics.data ?? []}
             storeKg={storeKg}
           />
         </Section>
@@ -436,6 +439,7 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
 
       <div className="lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
         <SummaryAside
+          unit={unit}
           calc={calc}
           warnings={calcWarnings}
           blockers={blockers}
@@ -476,12 +480,12 @@ export function CuttingForm({ mode, defaultValues }: { mode: FormMode; defaultVa
             </DialogDescription>
           </DialogHeader>
           <dl className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/40 p-3 sm:grid-cols-3">
-            <Figure label="Issued" value={microKgText(calc.totals.issuedKg)} />
-            <Figure label="Consumed" value={microKgText(calc.totals.consumedKg)} />
-            <Figure label="Returned" value={microKgText(calc.totals.returnedKg)} />
+            <Figure label="Issued" value={microKgText(calc.totals.issuedKg, unit)} />
+            <Figure label="Consumed" value={microKgText(calc.totals.consumedKg, unit)} />
+            <Figure label="Returned" value={microKgText(calc.totals.returnedKg, unit)} />
             <Figure
               label="Wastage"
-              value={microKgText(calc.totals.wastageKg)}
+              value={microKgText(calc.totals.wastageKg, unit)}
               tone={calc.totals.wastageKg > 0n ? "warning" : "default"}
             />
             <Figure label="Pala" value={String(calc.totals.confirmedPala)} />

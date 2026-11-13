@@ -28,11 +28,17 @@ const user: CurrentUser = {
   status: "ACTIVE",
   role: { key: "STAFF", name: "Staff" },
   permissions: ["dashboard.view"],
-  session: { expiresAt: new Date(Date.now() + 3_600_000).toISOString(), idleTimeoutMinutes: 120 },
+  phone: null,
+  mustChangePassword: false,
+  karigarId: null,
+  session: {
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    idleTimeoutMinutes: 120,
+  },
 };
 
 async function fillAndSubmit(email = "ada@garment.test", password = "correct horse battery staple") {
-  await userEvent.type(screen.getByLabelText("Email"), email);
+  await userEvent.type(screen.getByLabelText("Email or phone"), email);
   await userEvent.type(screen.getByLabelText("Password"), password);
   await userEvent.click(screen.getByRole("button", { name: "Continue" }));
 }
@@ -46,15 +52,15 @@ describe("LoginForm", () => {
   it("validates input before calling the API", async () => {
     renderWithClient(<LoginForm />);
     await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByText("Email is required.")).toBeInTheDocument();
+    expect(await screen.findByText("Enter your email or phone.")).toBeInTheDocument();
     expect(screen.getByText("Password is required.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Email")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Email or phone")).toHaveAttribute("aria-invalid", "true");
     expect(authApi.login).not.toHaveBeenCalled();
   });
 
   it("uses the right autocomplete hints and does not block paste", () => {
     renderWithClient(<LoginForm />);
-    expect(screen.getByLabelText("Email")).toHaveAttribute("autocomplete", "email");
+    expect(screen.getByLabelText("Email or phone")).toHaveAttribute("autocomplete", "username");
     const password = screen.getByLabelText("Password");
     expect(password).toHaveAttribute("autocomplete", "current-password");
     expect(password).not.toHaveAttribute("onpaste");
@@ -128,7 +134,7 @@ describe("LoginForm", () => {
     search = "reason=<script>";
     vi.mocked(authApi.getCurrentUser).mockResolvedValue(null);
     renderWithClient(<LoginForm />);
-    await screen.findByLabelText("Email");
+    await screen.findByLabelText("Email or phone");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });

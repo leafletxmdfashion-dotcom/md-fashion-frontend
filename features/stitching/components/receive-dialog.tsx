@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Field } from "@/components/form/field";
 import { FormAlert } from "@/components/form/form-alert";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,10 +24,9 @@ import { hasPermission } from "@/features/auth/lib/permissions";
 import { todayISO } from "@/features/fabric/lib/format";
 import { moneyText } from "@/features/production/lib/format";
 import { ApiError } from "@/lib/api-client";
-import { cn } from "@/lib/utils";
 
 import { useReceive, useRejectReasons } from "../hooks/use-stitching";
-import { pieces, previewSplit, receiptNumber, toPaisa } from "../lib/format";
+import { lineLabel, pieces, previewSplit, receiptNumber, toPaisa } from "../lib/format";
 import type { IssueDetail, SplitMethod } from "../types/stitching.types";
 
 interface LineValues {
@@ -69,7 +69,10 @@ export function ReceiveDialog({ issue, onOpenChange }: { issue: IssueDetail; onO
   const [formError, setFormError] = useState<string | null>(null);
 
   const set = (id: string, patch: Partial<LineValues>) =>
-    setValues((current) => ({ ...current, [id]: { ...current[id]!, ...patch } }));
+    setValues((current) => ({
+      ...current,
+      [id]: { ...current[id]!, ...patch },
+    }));
 
   const anyEntered = open.some((line) => {
     const value = values[line.id]!;
@@ -167,7 +170,10 @@ export function ReceiveDialog({ issue, onOpenChange }: { issue: IssueDetail; onO
     }
   };
 
-  const reasonItems = (reasons.data ?? []).map((reason) => ({ value: reason, label: reason }));
+  const reasonItems = (reasons.data ?? []).map((reason) => ({
+    value: reason,
+    label: reason,
+  }));
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -222,7 +228,7 @@ export function ReceiveDialog({ issue, onOpenChange }: { issue: IssueDetail; onO
             <table className="w-full min-w-[40rem] text-[13px]">
               <thead className="bg-muted/40 text-xs text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium">Colour · size</th>
+                  <th className="px-3 py-2 text-left font-medium">Size</th>
                   <th className="px-3 py-2 text-right font-medium">With team</th>
                   <th className="w-24 px-2 py-2 text-right font-medium">Good</th>
                   <th className="w-24 px-2 py-2 text-right font-medium">Rework</th>
@@ -233,7 +239,7 @@ export function ReceiveDialog({ issue, onOpenChange }: { issue: IssueDetail; onO
               <tbody className="divide-y">
                 {open.map((line) => {
                   const value = values[line.id]!;
-                  const label = `${line.colour} ${line.sizeLabel}`;
+                  const label = line.colour ? lineLabel(line.colour, line.sizeLabel) : `Size ${line.sizeLabel}`;
                   const rejecting = count(value.reject) > 0;
                   const error = errors[line.id];
                   const reasonError = errors[`${line.id}.reason`];
@@ -307,41 +313,26 @@ export function ReceiveDialog({ issue, onOpenChange }: { issue: IssueDetail; onO
 
           <fieldset className="grid gap-3 rounded-lg border p-3">
             <legend className="px-1 text-[13px] font-medium">Pay for {pieces(good)} Good</legend>
-            <div
-              role="radiogroup"
+            {/* Splitting by amount shows money, so it needs costing.view (the API re-checks). */}
+            <SegmentedControl
               aria-label="Split the pay"
-              className="grid w-fit grid-flow-col gap-1 rounded-lg bg-muted p-1"
-            >
-              {/* Splitting by amount shows money, so it needs costing.view (the API re-checks). */}
-              {(canSeeMoney ? METHODS : METHODS.slice(0, 2)).map((item) => (
-                <button
-                  key={item.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={method === item.value}
-                  onClick={() => {
-                    setMethod(item.value);
+              value={method}
+              options={canSeeMoney ? METHODS : METHODS.slice(0, 2)}
+              onValueChange={(next) => {
+                setMethod(next);
 
-                    if (item.value === "AMOUNT" && preview) {
-                      setAmounts(
-                        Object.fromEntries(
-                          issue.members.map((member, index) => [
-                            member.karigarId,
-                            ((preview[index] ?? 0) / 100).toFixed(2),
-                          ]),
-                        ),
-                      );
-                    }
-                  }}
-                  className={cn(
-                    "h-7 rounded-md px-3 text-[13px] font-medium text-muted-foreground transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                    method === item.value && "bg-card text-foreground shadow-sm",
-                  )}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
+                if (next === "AMOUNT" && preview) {
+                  setAmounts(
+                    Object.fromEntries(
+                      issue.members.map((member, index) => [
+                        member.karigarId,
+                        ((preview[index] ?? 0) / 100).toFixed(2),
+                      ]),
+                    ),
+                  );
+                }
+              }}
+            />
             <ul className="divide-y text-[13px]">
               {issue.members.map((member, index) => (
                 <li key={member.karigarId} className="flex items-center justify-between gap-3 py-1.5">
@@ -355,7 +346,10 @@ export function ReceiveDialog({ issue, onOpenChange }: { issue: IssueDetail; onO
                           className="h-8 text-right tabular-nums"
                           value={shares[member.karigarId] ?? ""}
                           onChange={(event) =>
-                            setShares((current) => ({ ...current, [member.karigarId]: event.target.value }))
+                            setShares((current) => ({
+                              ...current,
+                              [member.karigarId]: event.target.value,
+                            }))
                           }
                         />
                         <InputGroupAddon align="inline-end">
@@ -374,7 +368,10 @@ export function ReceiveDialog({ issue, onOpenChange }: { issue: IssueDetail; onO
                           className="h-8 text-right tabular-nums"
                           value={amounts[member.karigarId] ?? ""}
                           onChange={(event) =>
-                            setAmounts((current) => ({ ...current, [member.karigarId]: event.target.value }))
+                            setAmounts((current) => ({
+                              ...current,
+                              [member.karigarId]: event.target.value,
+                            }))
                           }
                         />
                       </InputGroup>

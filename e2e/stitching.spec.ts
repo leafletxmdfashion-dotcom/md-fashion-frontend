@@ -81,7 +81,7 @@ test("Jogadi team, issue cut pieces, receive Good/Rework/Reject, pay the team an
   await issueForm.getByLabel("Jogadi team").click();
   await page.getByRole("option", { name: /Asha Jogadi/ }).click();
   await issueForm.getByLabel("Rate per piece").fill("10");
-  await issueForm.getByLabel("Issue Black M").fill("25");
+  await issueForm.getByLabel("Issue Size M").fill("25");
   await issueForm.getByRole("button", { name: "Issue pieces" }).click();
   await expect(issueForm.getByText("5 more than waiting.")).toBeVisible();
   // The same button clears what was typed, then fills in everything waiting.
@@ -96,13 +96,13 @@ test("Jogadi team, issue cut pieces, receive Good/Rework/Reject, pay the team an
   await expect(sheet).toContainText("Asha Tailor, Bina Tailor");
   await sheet.getByRole("button", { name: "Receive pieces" }).click();
   const receive = page.getByRole("dialog", { name: "Receive from Asha Jogadi" });
-  await receive.getByLabel("Good, Black S").fill("9");
-  await receive.getByLabel("Reject, Black S").fill("1");
-  await receive.getByLabel("Good, Black M").fill("18");
-  await receive.getByLabel("Rework, Black M").fill("2");
+  await receive.getByLabel("Good, Size S").fill("9");
+  await receive.getByLabel("Reject, Size S").fill("1");
+  await receive.getByLabel("Good, Size M").fill("18");
+  await receive.getByLabel("Rework, Size M").fill("2");
   await receive.getByRole("button", { name: "Record receipt" }).click();
   await expect(receive.getByText("Choose why.")).toBeVisible();
-  await receive.getByLabel("Reject reason, Black S").click();
+  await receive.getByLabel("Reject reason, Size S").click();
   await page.getByRole("option", { name: "Hole or tear" }).click();
   // 27 Good × Rs 10 = Rs 270, Rs 135 each.
   await expect(receive.getByText("Rs 270.00")).toBeVisible();
@@ -126,8 +126,12 @@ test("Jogadi team, issue cut pieces, receive Good/Rework/Reject, pay the team an
   await expect(page.getByRole("row").filter({ hasText: "ST-LOT" })).toHaveCount(0);
 
   await page.getByRole("tab", { name: "Rejects" }).click();
-  await expect(page.getByRole("row").filter({ hasText: "Hole or tear" })).toContainText("1");
-  await expect(page.getByRole("row").filter({ hasText: "Fabric defect" })).toContainText("1");
+  await expect(page.getByRole("row").filter({ hasText: "ST-LOT" }).filter({ hasText: "Hole or tear" })).toContainText(
+    "1",
+  );
+  await expect(page.getByRole("row").filter({ hasText: "ST-LOT" }).filter({ hasText: "Fabric defect" })).toContainText(
+    "1",
+  );
 
   // 4 · Where the lot's pieces are: 30 cut, 28 Good, 2 rejected, nothing left with the team.
   await page.goto("/stitching");
@@ -219,18 +223,18 @@ test("one lot divided between two Jogadi teams in a single issue", async ({ page
 
   // Divide all equally, then move 2 Blue M from Gita to Hira by hand.
   await form.getByRole("button", { name: "Divide all equally" }).click();
-  await expect(form.getByLabel("Gita Jogadi, Blue M")).toHaveValue("10");
-  await form.getByLabel("Gita Jogadi, Blue M").fill("8");
-  await form.getByLabel("Hira Jogadi, Blue M").fill("13");
+  await expect(form.getByLabel("Gita Jogadi, Size M")).toHaveValue("10");
+  await form.getByLabel("Gita Jogadi, Size M").fill("8");
+  await form.getByLabel("Hira Jogadi, Size M").fill("13");
   await expect(form.getByText("1 more than waiting.")).toHaveCount(0);
   await form.getByRole("button", { name: "Issue to teams" }).click();
   await expect(form.getByText("1 more than waiting.")).toBeVisible();
-  await form.getByLabel("Hira Jogadi, Blue M").fill("12");
+  await form.getByLabel("Hira Jogadi, Size M").fill("12");
   await expect(form.getByRole("row", { name: /Each team gets/ })).toContainText(/18\s*22/);
 
   // Clear all empties every box; Divide all fills them again.
   await form.getByRole("button", { name: "Clear all" }).click();
-  await expect(form.getByLabel("Gita Jogadi, Blue S")).toHaveValue("");
+  await expect(form.getByLabel("Gita Jogadi, Size S")).toHaveValue("");
   await form.getByRole("button", { name: "Divide all equally" }).click();
   await form.getByRole("button", { name: "Issue to teams" }).click();
   await expect(

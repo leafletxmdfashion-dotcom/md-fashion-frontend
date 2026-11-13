@@ -19,7 +19,15 @@ export default defineConfig({
     // Uses the installed Edge by default; set PW_CHANNEL="" to use Playwright's Chromium.
     channel: process.env.PW_CHANNEL ?? "msedge",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], channel: process.env.PW_CHANNEL ?? "msedge" } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        channel: process.env.PW_CHANNEL ?? "msedge",
+      },
+    },
+  ],
   webServer: [
     {
       command: "npx tsx src/server.ts",
@@ -32,7 +40,7 @@ export default defineConfig({
     {
       command: `npx next dev --port ${E2E.appPort}`,
       url: `${E2E.appUrl}/login`,
-      env: { API_URL: E2E.apiUrl },
+      env: { API_URL: E2E.apiUrl, NEXT_DIST_DIR: ".next-e2e" },
       reuseExistingServer: false,
       timeout: 180_000,
     },

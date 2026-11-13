@@ -87,6 +87,9 @@ function useStitchingMutation<TInput, TResult>(mutationFn: (input: TInput) => Pr
       Promise.all([
         queryClient.invalidateQueries({ queryKey: stitchingKeys.all }),
         queryClient.invalidateQueries({ queryKey: productionKeys.all }),
+        // Good pieces wait for packing; earnings show in payments.
+        queryClient.invalidateQueries({ queryKey: ["packing"] }),
+        queryClient.invalidateQueries({ queryKey: ["payments"] }),
       ]),
   });
 }

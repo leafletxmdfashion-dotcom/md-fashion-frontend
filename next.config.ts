@@ -14,10 +14,15 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=()",
+  },
 ];
 
 const nextConfig: NextConfig = {
+  // E2E runs its own server beside `npm run dev`; a separate build folder keeps their locks apart.
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
@@ -44,7 +49,12 @@ const nextConfig: NextConfig = {
   async headers() {
     const hsts =
       process.env.NODE_ENV === "production"
-        ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]
+        ? [
+            {
+              key: "Strict-Transport-Security",
+              value: "max-age=63072000; includeSubDomains",
+            },
+          ]
         : [];
     return [{ source: "/:path*", headers: [...securityHeaders, ...hsts] }];
   },

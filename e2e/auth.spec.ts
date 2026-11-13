@@ -9,7 +9,7 @@ test.describe("authentication", () => {
     await expect(page).toHaveURL(/\/login\?next=%2Fusers$/);
 
     await login(page, "owner@garment.test", "definitely the wrong password");
-    await expect(page.getByText("Invalid email or password.")).toBeVisible();
+    await expect(page.getByText("Invalid email, phone or password.")).toBeVisible();
 
     await login(page, "owner@garment.test");
     await expect(page).toHaveURL(/\/users$/);
@@ -23,7 +23,11 @@ test.describe("authentication", () => {
     await expect(page).toHaveURL(/\/dashboard$/);
 
     const session = (await context.cookies()).find((cookie) => cookie.name === "gm_session");
-    expect(session).toMatchObject({ httpOnly: true, sameSite: "Lax", path: "/" });
+    expect(session).toMatchObject({
+      httpOnly: true,
+      sameSite: "Lax",
+      path: "/",
+    });
     expect(await page.evaluate(() => document.cookie)).not.toContain("gm_session");
     expect(await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).not.toContain(
       session!.value,
@@ -100,13 +104,13 @@ test.describe("authentication", () => {
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto("/users");
 
-    await page.getByRole("button", { name: "Invite member" }).click();
+    await page.getByRole("button", { name: "Add login" }).click();
     const dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Email").fill("new.hire@garment.test");
+    await dialog.getByLabel("Email", { exact: true }).fill("new.hire@garment.test");
     await dialog.getByLabel("Name").fill("Nia New");
     await dialog.getByLabel("Role").click();
     await page.getByRole("option", { name: "Staff", exact: true }).click();
-    await dialog.getByRole("button", { name: "Send invitation" }).click();
+    await dialog.getByRole("button", { name: "Create login" }).click();
     const inviteUrl = await dialog.getByLabel("Invitation link", { exact: true }).inputValue();
     expect(inviteUrl).toMatch(/\/accept-invitation#token=/);
 

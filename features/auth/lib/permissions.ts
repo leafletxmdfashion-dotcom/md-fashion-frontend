@@ -11,7 +11,11 @@ export function hasPermission(user: Pick<CurrentUser, "permissions"> | null | un
  * Removes items the user cannot see, filters nested items, and drops parents
  * whose children are all hidden and groups left empty.
  */
-export function filterNavigation(groups: NavGroup[], permissions: readonly Permission[]): NavGroup[] {
+export function filterNavigation(
+  groups: NavGroup[],
+  permissions: readonly Permission[],
+  { linkedPerson = false }: { linkedPerson?: boolean } = {},
+): NavGroup[] {
   const granted = new Set(permissions);
   const allowed = (permission?: Permission) => !permission || granted.has(permission);
 
@@ -19,7 +23,7 @@ export function filterNavigation(groups: NavGroup[], permissions: readonly Permi
     .map((group) => ({
       ...group,
       items: group.items.flatMap((item): NavItem[] => {
-        if (!allowed(item.permission)) return [];
+        if (!allowed(item.permission) || (item.linkedPersonOnly && !linkedPerson)) return [];
         if (!item.items) return [item];
         const children = item.items.filter((child) => allowed(child.permission));
         return children.length > 0 ? [{ ...item, items: children }] : [];

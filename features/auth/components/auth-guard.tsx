@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 
 import { useCurrentUser } from "../hooks/use-current-user";
 import { signOut } from "../lib/sign-out";
+import { ChangePasswordForm } from "./change-password-form";
 import { SessionTimeout } from "./session-timeout";
 
 function FullPageStatus({ children }: { children: React.ReactNode }) {
@@ -64,6 +65,31 @@ function ServerUnavailable({ retry, retrying }: { retry: () => void; retrying: b
 }
 
 /**
+ * An administrator set this password: nothing else is usable until the user picks their own
+ * (the API refuses other calls with PASSWORD_CHANGE_REQUIRED). Changing it rotates the session
+ * and clears the flag, which swaps this screen for the app.
+ */
+function PasswordChangeRequired({ name }: { name: string }) {
+  return (
+    <FullPageStatus>
+      <div className="grid w-full max-w-sm gap-5 rounded-xl border bg-card p-6 shadow-sm">
+        <div className="grid gap-1.5">
+          <h1 className="text-lg font-semibold">Choose your own password</h1>
+          <p className="text-[13px] leading-5 text-muted-foreground">
+            Welcome, {name}. Your account was set up with a temporary password. Enter it as the current password, then
+            choose one only you know.
+          </p>
+        </div>
+        <ChangePasswordForm />
+        <Button variant="ghost" size="sm" className="justify-self-start" onClick={() => void signOut("signed-out")}>
+          Log out
+        </Button>
+      </div>
+    </FullPageStatus>
+  );
+}
+
+/**
  * Renders protected UI only after /auth/me confirms a session, so protected
  * content never flashes for signed-out visitors. This is UX, not security:
  * the API authorizes every request on its own.
@@ -81,6 +107,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (sessionEnded) void signOut("expired");
   }, [sessionEnded]);
+
+  if (user?.mustChangePassword) return <PasswordChangeRequired name={user.name} />;
 
   if (user) {
     return (

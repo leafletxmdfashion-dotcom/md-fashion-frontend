@@ -17,9 +17,15 @@ export type Permission =
   | "stitching.receive"
   | "stitching.rework"
   | "stitching.reverse"
+  | "packing.view"
+  | "packing.manage"
+  | "godown.view"
+  | "godown.manage"
   | "karigar.view"
   | "karigar.manage"
   | "costing.view"
+  | "payments.view"
+  | "payments.manage"
   | "users.view"
   | "users.manage"
   | "roles.manage";
@@ -28,11 +34,17 @@ export type UserStatus = "ACTIVE" | "INVITED" | "DISABLED" | "LOCKED";
 
 export interface CurrentUser {
   id: string;
-  email: string;
+  /** Login id: email or phone, at least one. */
+  email: string | null;
+  phone: string | null;
   name: string;
   status: UserStatus;
   role: { key: string; name: string };
   permissions: Permission[];
+  /** An admin chose the password: the user must set their own before anything else works. */
+  mustChangePassword: boolean;
+  /** The staff / karigar record this login belongs to; only these logins have a "My ledger". */
+  karigarId: string | null;
   /** When the server stops accepting this session: at `expiresAt`, or after this many idle minutes. */
   session: { expiresAt: string; idleTimeoutMinutes: number };
 }
@@ -48,7 +60,8 @@ export interface SessionSummary {
 }
 
 export interface InvitationDetails {
-  email: string;
+  email: string | null;
+  phone: string | null;
   name: string;
   roleName: string;
   expiresAt: string;

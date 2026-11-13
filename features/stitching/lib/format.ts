@@ -8,6 +8,9 @@ export const receiptNumber = (number: number) => `SR-${String(number).padStart(4
 
 export const reworkNumber = (number: number) => `RW-${String(number).padStart(4, "0")}`;
 
+/** "M" for a bulk line (every colour of the size), "Black M" for an older colour line. */
+export const lineLabel = (colour: string, size: string) => (colour ? `${colour} ${size}` : size);
+
 export const pieces = (count: number) => `${count.toLocaleString("en-IN")} pc${count === 1 ? "" : "s"}`;
 
 export const REWORK_STATUS: Record<ReworkStatus, { label: string; tone: StatusTone }> = {

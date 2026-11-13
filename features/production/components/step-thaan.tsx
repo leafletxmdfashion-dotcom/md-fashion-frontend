@@ -12,19 +12,20 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 import { formatKg, type Issue, type RollResult } from "../lib/cutting-calc";
-import { microKgText } from "../lib/format";
+import { microKgText, unitShort } from "../lib/format";
 import { emptyRoll } from "../lib/form-model";
 import { CellError } from "./form-parts";
 import type { StepProps } from "./step-details";
 
 const ROW = "md:grid-cols-[minmax(0,1fr)_8rem_6.5rem_8rem_9rem_2.25rem]";
 
-const LOCKED = "Issued from the store: colour and weight are fixed. Enter what came back under Returned.";
+const LOCKED = "Issued from the store: colour and quantity are fixed. Enter what came back under Returned.";
 
 /** Step 3: one row per Thaan: its colour, the weight issued, and the Pala cut from it. */
 export function StepThaan({
   form,
   errorAt,
+  unit,
   storeKg,
   toIssueKg,
   fabricName,
@@ -43,6 +44,8 @@ export function StepThaan({
   const values = form.watch("rolls");
   const repetitions = Math.max(1, Number(form.watch("marker.repetitionsPerLayer")) || 1);
   const palaLabel = repetitions > 1 ? "Layers" : "Pala";
+  const unitLabel = unitShort(unit);
+  const measure = unit === "METER" ? "length" : "weight";
   const short = storeKg !== null && toIssueKg > storeKg;
   const colours = [...new Set(values.map((roll) => roll.colour.trim()).filter(Boolean))];
 
@@ -56,15 +59,15 @@ export function StepThaan({
       >
         <p>
           {fabricName ?? "Fabric"} in store:{" "}
-          <strong className="tabular-nums">{storeKg === null ? "—" : microKgText(storeKg)}</strong>
+          <strong className="tabular-nums">{storeKg === null ? "—" : microKgText(storeKg, unit)}</strong>
         </p>
         <p>
-          This batch issues <strong className="tabular-nums">{microKgText(toIssueKg)}</strong>
+          This batch issues <strong className="tabular-nums">{microKgText(toIssueKg, unit)}</strong>
           {short ? " — more than the store holds" : ""}
         </p>
       </div>
       <p className="text-[13px] text-muted-foreground">
-        {palaLabel} and Returned fill in from the weight. Type over them when the Thaan cut differently: thicker or
+        {palaLabel} and Returned fill in from the {measure}. Type over them when the Thaan cut differently: thicker or
         thinner fabric gives fewer or more {palaLabel}. Whatever is left and not returned is wastage.
       </p>
       {errorAt("rolls") ? <p className="text-[13px] text-destructive">{errorAt("rolls")}</p> : null}
@@ -147,12 +150,12 @@ export function StepThaan({
               </div>
               <div>
                 <Label htmlFor={`${id}-issued`} className="mb-1 text-xs text-muted-foreground md:sr-only">
-                  Issued (kg)
+                  Issued ({unitLabel})
                 </Label>
                 <InputGroup className={cn(issued && "bg-muted")}>
                   <InputGroupInput
                     {...fieldProps(`${id}-issued`, errorAt(`${path}.issuedKg`))}
-                    aria-label={`Issued kg, ${name}`}
+                    aria-label={`Issued ${unitLabel}, ${name}`}
                     inputMode="decimal"
                     placeholder="e.g. 20.5"
                     autoComplete="off"
@@ -162,7 +165,7 @@ export function StepThaan({
                     {...form.register(`rolls.${index}.issuedKg`)}
                   />
                   <InputGroupAddon align="inline-end">
-                    <InputGroupText>kg</InputGroupText>
+                    <InputGroupText>{unitLabel}</InputGroupText>
                   </InputGroupAddon>
                 </InputGroup>
                 <CellError id={`${id}-issued-error`} message={errorAt(`${path}.issuedKg`)} />
@@ -187,7 +190,7 @@ export function StepThaan({
                     <button
                       type="button"
                       className="mt-1 block w-full text-right text-xs font-medium text-link hover:underline"
-                      title="Go back to the number that fits by weight"
+                      title={`Go back to the number that fits by ${measure}`}
                       onClick={() => {
                         form.setValue(`rolls.${index}.confirmedLayers`, "", { shouldDirty: true });
                         form.setValue(`rolls.${index}.note`, "", { shouldDirty: true });
@@ -206,12 +209,12 @@ export function StepThaan({
               </div>
               <div>
                 <Label htmlFor={`${id}-returned`} className="mb-1 text-xs text-muted-foreground md:sr-only">
-                  Returned (kg)
+                  Returned ({unitLabel})
                 </Label>
                 <InputGroup>
                   <InputGroupInput
                     {...fieldProps(`${id}-returned`, errorAt(`${path}.returnedKg`))}
-                    aria-label={`Returned kg, ${name}`}
+                    aria-label={`Returned ${unitLabel}, ${name}`}
                     inputMode="decimal"
                     placeholder={weighed ? formatKg(result.returnedKg) : "Auto"}
                     autoComplete="off"
@@ -219,7 +222,7 @@ export function StepThaan({
                     {...form.register(`rolls.${index}.returnedKg`)}
                   />
                   <InputGroupAddon align="inline-end">
-                    <InputGroupText>kg</InputGroupText>
+                    <InputGroupText>{unitLabel}</InputGroupText>
                   </InputGroupAddon>
                 </InputGroup>
                 {weighed ? (
@@ -237,7 +240,7 @@ export function StepThaan({
                       aria-label="Wastage"
                       className={cn("tabular-nums", wholeRollWasted && "font-medium text-warning")}
                     >
-                      {microKgText(result.wastageKg)}
+                      {microKgText(result.wastageKg, unit)}
                     </span>
                   </>
                 ) : (

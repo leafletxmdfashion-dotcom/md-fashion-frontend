@@ -25,7 +25,10 @@ export interface PermissionGroup {
 
 export interface ManagedUser {
   id: string;
-  email: string;
+  email: string | null;
+  phone: string | null;
+  /** An admin set the password; the user must change it at the next sign-in. */
+  mustChangePassword: boolean;
   name: string;
   status: UserStatus;
   role: RoleRef;
@@ -33,6 +36,8 @@ export interface ManagedUser {
   lastLoginAt: string | null;
   createdAt: string;
   activeSessionCount: number;
+  /** The staff / karigar record this login belongs to, if any. */
+  linkedTo: { id: string; name: string } | null;
   invitation: { id: string; expiresAt: string; expired: boolean } | null;
 }
 
@@ -41,4 +46,11 @@ export interface IssuedInvitation {
   invitationId: string;
   expiresAt: string;
   inviteUrl: string;
+}
+
+/** A login just created: by invitation (link returned once) or with an admin-set password. */
+export interface CreatedLogin {
+  userId: string;
+  mode: "INVITE" | "PASSWORD";
+  invitation: IssuedInvitation | null;
 }

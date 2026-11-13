@@ -11,10 +11,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn } from "@/lib/utils";
 
 import { parseScaled } from "../lib/cutting-calc";
-import { microKgText } from "../lib/format";
+import { metresToInches, microKgText } from "../lib/format";
+import { lengthInMetres, type LengthUnit } from "../lib/form-model";
 import { CellError, Computed, Panel } from "./form-parts";
 import type { StepProps } from "./step-details";
 
@@ -23,7 +25,11 @@ function UnitInput({
   unit,
   error,
   ...props
-}: React.ComponentProps<typeof InputGroupInput> & { id: string; unit: string; error?: string | undefined }) {
+}: React.ComponentProps<typeof InputGroupInput> & {
+  id: string;
+  unit: string;
+  error?: string | undefined;
+}) {
   return (
     <InputGroup>
       <InputGroupInput {...fieldProps(id, error)} type="text" inputMode="decimal" autoComplete="off" {...props} />
@@ -34,52 +40,212 @@ function UnitInput({
   );
 }
 
-function PalaWeight({ form, calc, errorAt }: StepProps) {
-  const reps = form.watch("marker.repetitionsPerLayer");
-  const [more, setMore] = useState(reps.trim() !== "" && reps.trim() !== "1");
+/** Metres rounded to the millimetre, trailing zeros dropped: "1.500124" → "1.5". */
+function toMillimetre(metres: string): string {
+  const value = Number(metres);
+
+  return Number.isFinite(value) ? String(Math.round(value * 1000) / 1000) : metres;
+}
+
+const LENGTH_UNITS = [
+  { value: "M", label: "m" },
+  { value: "IN", label: "in" },
+] as const;
+
+function LengthUnitSwitch({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: LengthUnit;
+  onChange: (unit: LengthUnit) => void;
+}) {
+  return (
+    <InputGroupAddon align="inline-end" className="pr-1">
+      <SegmentedControl
+        size="inline"
+        aria-label={`${label} unit`}
+        value={value}
+        onValueChange={onChange}
+        options={LENGTH_UNITS}
+      />
+    </InputGroupAddon>
+  );
+}
+
+/** Panaha or layer length, typed in metres or inches; switching converts what was typed. */
+function LengthInput({
+  form,
+  name,
+  unitName,
+  id,
+  label,
+  placeholder,
+  error,
+}: {
+  form: StepProps["form"];
+  name: "marker.widthM" | "marker.lengthM";
+  unitName: "marker.widthUnit" | "marker.lengthUnit";
+  id: string;
+  label: string;
+  placeholder: { M: string; IN: string };
+  error: string | undefined;
+}) {
+  const unit = form.watch(unitName);
+
+  const switchTo = (next: LengthUnit) => {
+    if (next === unit) return;
+
+    const metres = lengthInMetres(form.getValues(name), unit);
+    const converted =
+      metres === null ? "" : next === "IN" ? metresToInches(metres) : unit === "IN" ? toMillimetre(metres) : metres;
+
+    form.setValue(unitName, next, { shouldDirty: true });
+
+    if (converted !== null) form.setValue(name, converted, { shouldDirty: true });
+  };
+
+  return (
+    <InputGroup>
+      <InputGroupInput
+        {...fieldProps(id, error)}
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        placeholder={placeholder[unit]}
+        aria-label={`${label} in ${unit === "IN" ? "inches" : "metres"}`}
+        {...form.register(name)}
+      />
+      <LengthUnitSwitch label={label} value={unit} onChange={switchTo} />
+    </InputGroup>
+  );
+}
+
+type PalaUnit = "KG" | "M";
+
+const PALA_UNITS = [
+  { value: "KG", label: "kg" },
+  { value: "M", label: "m" },
+] as const;
+
+const PALA_LABEL: Record<PalaUnit, string> = {
+  KG: "Weight of one Pala",
+  M: "Length of one Pala",
+};
+
+function PalaWeight({ form, calc, errorAt, unit }: StepProps) {
   const { marker } = calc;
+  const byLength = unit === "METER";
+  // Cutting counts Pala in the unit the fabric is bought in; the other unit is only recorded.
+  const main: PalaUnit = byLength ? "M" : "KG";
+  const other: PalaUnit = byLength ? "KG" : "M";
+  const [palaUnit, setPalaUnit] = useState<PalaUnit>(() =>
+    form.getValues("marker.palaAltValue").trim() ? other : main,
+  );
+  const switched = palaUnit !== main;
+  const shownName = switched ? "marker.palaAltValue" : "marker.measuredPalaKg";
+  const shownError = errorAt(shownName);
+
+  const switchTo = (next: PalaUnit) => {
+    // Back to the fabric's unit: drop the extra measure so nothing hidden is saved.
+    if (next === main) form.setValue("marker.palaAltValue", "", { shouldDirty: true });
+
+    setPalaUnit(next);
+  };
 
   return (
     <Panel
-      title="Pala weight"
-      description="One Pala is one full marker on one layer. Each Thaan is cut into whole Pala of this weight."
+      title={byLength ? "Pala length" : "Pala weight"}
+      description={
+        byLength
+          ? "One Pala is one full marker on one layer. This fabric is bought by the metre, so each Thaan is cut into whole Pala of this length."
+          : "One Pala is one full marker on one layer. Each Thaan is cut into whole Pala of this weight."
+      }
     >
       <div className="grid gap-5">
-        {/* Panaha and layer length are recorded; the Pala weight is what the cutting master weighs. */}
+        {/* Panaha and layer length are recorded (metres or inches); the Pala is what the cutting master measures. */}
         <div className="grid gap-4 sm:grid-cols-3">
           <Field id="marker-width" label="Panaha (usable width)" error={errorAt("marker.widthM")}>
-            <UnitInput
+            <LengthInput
+              form={form}
+              name="marker.widthM"
+              unitName="marker.widthUnit"
               id="marker-width"
-              unit="m"
-              placeholder="e.g. 1.50"
+              label="Panaha"
+              placeholder={{ M: "e.g. 1.50", IN: "e.g. 58" }}
               error={errorAt("marker.widthM")}
-              {...form.register("marker.widthM")}
             />
           </Field>
           <Field id="marker-length" label="Marker / layer length" error={errorAt("marker.lengthM")}>
-            <UnitInput
+            <LengthInput
+              form={form}
+              name="marker.lengthM"
+              unitName="marker.lengthUnit"
               id="marker-length"
-              unit="m"
-              placeholder="e.g. 7.10"
+              label="Layer length"
+              placeholder={{ M: "e.g. 7.10", IN: "e.g. 280" }}
               error={errorAt("marker.lengthM")}
-              {...form.register("marker.lengthM")}
             />
           </Field>
           <Field
             id="marker-measured"
-            label="Weight of one Pala"
-            error={errorAt("marker.measuredPalaKg")}
-            description="Weighed by the cutting master"
+            label={PALA_LABEL[palaUnit]}
+            error={shownError}
+            description={
+              switched
+                ? "Recorded with the cutting"
+                : byLength
+                  ? "In metres, as the fabric is bought"
+                  : "Weighed by the cutting master"
+            }
           >
-            <UnitInput
-              id="marker-measured"
-              unit="kg"
-              placeholder="e.g. 2.130"
-              error={errorAt("marker.measuredPalaKg")}
-              aria-label="Measured Pala weight"
-              {...form.register("marker.measuredPalaKg")}
-            />
+            <InputGroup>
+              <InputGroupInput
+                key={palaUnit}
+                {...fieldProps("marker-measured", shownError)}
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder={palaUnit === "M" ? "e.g. 7.20" : "e.g. 2.130"}
+                aria-label={palaUnit === "M" ? "Pala length in metres" : "Measured Pala weight"}
+                {...form.register(shownName)}
+              />
+              <InputGroupAddon align="inline-end" className="pr-1">
+                <SegmentedControl
+                  size="inline"
+                  aria-label="Pala unit"
+                  value={palaUnit}
+                  onValueChange={switchTo}
+                  options={PALA_UNITS}
+                />
+              </InputGroupAddon>
+            </InputGroup>
           </Field>
+          {switched ? (
+            <Field
+              id="marker-measured-main"
+              label={`${PALA_LABEL[main]} (used for cutting)`}
+              error={errorAt("marker.measuredPalaKg")}
+              description={
+                byLength
+                  ? "This fabric is bought by the metre, so cutting counts Pala by length."
+                  : "This fabric is bought by kg, so cutting counts Pala by weight."
+              }
+              className="sm:col-start-3"
+            >
+              <UnitInput
+                id="marker-measured-main"
+                unit={byLength ? "m" : "kg"}
+                placeholder={byLength ? "e.g. 7.20" : "e.g. 2.130"}
+                error={errorAt("marker.measuredPalaKg")}
+                aria-label={
+                  byLength ? "Pala length in metres, used for cutting" : "Pala weight in kg, used for cutting"
+                }
+                {...form.register("marker.measuredPalaKg")}
+              />
+            </Field>
+          ) : null}
         </div>
 
         <div
@@ -91,45 +257,18 @@ function PalaWeight({ form, calc, errorAt }: StepProps) {
         >
           <p className="text-[13px]">
             {marker.activePalaKg === null ? (
-              <span className="text-muted-foreground">Enter the weight of one Pala.</span>
+              <span className="text-muted-foreground">
+                {byLength ? "Enter the length of one Pala." : "Enter the weight of one Pala."}
+              </span>
             ) : (
               <>
-                Cutting uses <strong className="text-base tabular-nums">{microKgText(marker.activePalaKg)}</strong> per
-                Pala
-                <span className="text-muted-foreground"> · weighed</span>
+                Cutting uses{" "}
+                <strong className="text-base tabular-nums">{microKgText(marker.activePalaKg, unit)}</strong> per Pala
+                <span className="text-muted-foreground"> · {byLength ? "measured" : "weighed"}</span>
               </>
             )}
           </p>
         </div>
-
-        {more ? (
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Field
-              id="marker-reps"
-              label="Marker repeats per layer"
-              error={errorAt("marker.repetitionsPerLayer")}
-              description="Pala = layers × repeats"
-            >
-              <Input
-                {...fieldProps("marker-reps", errorAt("marker.repetitionsPerLayer"))}
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={50}
-                step={1}
-                {...form.register("marker.repetitionsPerLayer")}
-              />
-            </Field>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="justify-self-start text-[13px] font-medium text-link hover:underline"
-            onClick={() => setMore(true)}
-          >
-            The marker repeats more than once per layer
-          </button>
-        )}
       </div>
     </Panel>
   );
@@ -162,7 +301,11 @@ const SIZE_SUGGESTIONS = [
 ];
 
 function SizeRatio({ form, calc, errorAt, canSaveDefault }: StepProps & { canSaveDefault: boolean }) {
-  const sizes = useFieldArray({ control: form.control, name: "sizes", keyName: "key" });
+  const sizes = useFieldArray({
+    control: form.control,
+    name: "sizes",
+    keyName: "key",
+  });
   const values = form.watch("sizes");
   const { marker } = calc;
 

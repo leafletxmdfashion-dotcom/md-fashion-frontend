@@ -1,4 +1,5 @@
 import { api, unwrap, type ApiSuccess } from "@/lib/api-client";
+import type { CreatedLogin } from "@/features/users/types/user.types";
 
 import type {
   Article,
@@ -37,11 +38,22 @@ const POSTING = { timeout: 60_000 };
 
 export const productionApi = {
   lots(filters: ListFilters, signal?: AbortSignal): Promise<LotPage> {
-    return unwrap(api.get<ApiSuccess<LotPage>>("/production-lots", { params: params(filters), signal }));
+    return unwrap(
+      api.get<ApiSuccess<LotPage>>("/production-lots", {
+        params: params(filters),
+        signal,
+      }),
+    );
   },
 
   async lot(id: string, signal?: AbortSignal): Promise<LotDetail> {
-    return (await unwrap(api.get<ApiSuccess<{ lot: LotDetail }>>(`/production-lots/${id}`, { signal }))).lot;
+    return (
+      await unwrap(
+        api.get<ApiSuccess<{ lot: LotDetail }>>(`/production-lots/${id}`, {
+          signal,
+        }),
+      )
+    ).lot;
   },
 
   createLot(input: CreateLotInput): Promise<{ lot: LotDetail; batch: Batch | null }> {
@@ -58,11 +70,22 @@ export const productionApi = {
   },
 
   batches(filters: ListFilters, signal?: AbortSignal): Promise<BatchPage> {
-    return unwrap(api.get<ApiSuccess<BatchPage>>("/cutting-batches", { params: params(filters), signal }));
+    return unwrap(
+      api.get<ApiSuccess<BatchPage>>("/cutting-batches", {
+        params: params(filters),
+        signal,
+      }),
+    );
   },
 
   async batch(id: string, signal?: AbortSignal): Promise<Batch> {
-    return (await unwrap(api.get<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}`, { signal }))).batch;
+    return (
+      await unwrap(
+        api.get<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}`, {
+          signal,
+        }),
+      )
+    ).batch;
   },
 
   async saveBatch({ id, ...input }: CuttingDraftInput & { id: string }): Promise<Batch> {
@@ -75,39 +98,60 @@ export const productionApi = {
 
   /** Issues the batch's fabric; unsaved form edits sent as `cutting` are saved first, in the same request. */
   async issue({ id, cutting }: { id: string; cutting?: CuttingDraftInput }): Promise<Batch> {
-    return (await unwrap(api.post<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}/issue`, { cutting }, POSTING))).batch;
-  },
-
-  async finalize({ id, cutting }: { id: string; cutting?: CuttingDraftInput }): Promise<Batch> {
-    return (await unwrap(api.post<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}/finalize`, { cutting }, POSTING)))
+    return (await unwrap(api.post<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}/issue`, { cutting }, POSTING)))
       .batch;
   },
 
+  async finalize({ id, cutting }: { id: string; cutting?: CuttingDraftInput }): Promise<Batch> {
+    return (
+      await unwrap(api.post<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}/finalize`, { cutting }, POSTING))
+    ).batch;
+  },
+
   async reverse({ id, reason }: { id: string; reason: string }): Promise<Batch> {
-    return (await unwrap(api.post<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}/reverse`, { reason }, POSTING))).batch;
+    return (await unwrap(api.post<ApiSuccess<{ batch: Batch }>>(`/cutting-batches/${id}/reverse`, { reason }, POSTING)))
+      .batch;
   },
 
   async articleOptions(signal?: AbortSignal): Promise<Article[]> {
-    return (await unwrap(api.get<ApiSuccess<{ articles: Article[] }>>("/articles/options", { signal }))).articles;
+    return (
+      await unwrap(
+        api.get<ApiSuccess<{ articles: Article[] }>>("/articles/options", {
+          signal,
+        }),
+      )
+    ).articles;
   },
 
   karigars(filters: ListFilters, signal?: AbortSignal): Promise<{ karigars: Karigar[]; total: number }> {
-    return unwrap(api.get<ApiSuccess<{ karigars: Karigar[]; total: number }>>("/karigars", { params: params(filters), signal }));
+    return unwrap(
+      api.get<ApiSuccess<{ karigars: Karigar[]; total: number }>>("/karigars", {
+        params: params(filters),
+        signal,
+      }),
+    );
   },
 
   async karigarOptions(category?: string, signal?: AbortSignal): Promise<KarigarOption[]> {
     return (
       await unwrap(
-        api.get<ApiSuccess<{ karigars: KarigarOption[] }>>("/karigars/options", { params: params({ category }), signal }),
+        api.get<ApiSuccess<{ karigars: KarigarOption[] }>>("/karigars/options", {
+          params: params({ category }),
+          signal,
+        }),
       )
     ).karigars;
   },
 
-  async saveKarigar({ id, ...input }: KarigarInput & { id?: string }): Promise<Karigar> {
+  /** Saves the person; `login` is set when a new login was created with them. */
+  async saveKarigar({ id, ...input }: KarigarInput & { id?: string }): Promise<{
+    karigar: Karigar;
+    login: CreatedLogin | null;
+  }> {
     const request = id
-      ? api.put<ApiSuccess<{ karigar: Karigar }>>(`/karigars/${id}`, input)
-      : api.post<ApiSuccess<{ karigar: Karigar }>>("/karigars", input);
+      ? api.put<ApiSuccess<{ karigar: Karigar; login: CreatedLogin | null }>>(`/karigars/${id}`, input)
+      : api.post<ApiSuccess<{ karigar: Karigar; login: CreatedLogin | null }>>("/karigars", input);
 
-    return (await unwrap(request)).karigar;
+    return unwrap(request);
   },
 };

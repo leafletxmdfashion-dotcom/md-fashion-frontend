@@ -24,7 +24,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useUrlFilters } from "@/hooks/use-url-filters";
-import { downloadCsv } from "@/lib/csv";
+import { ApiError } from "@/lib/api-client";
+import { downloadServerCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 
 import { ColumnHeader, FilterEditor } from "./column-header";
@@ -88,16 +89,18 @@ interface DataTableProps<T> {
   extraFilters?: ExtraFilter[];
   toolbarStart?: React.ReactNode;
   toolbarEnd?: React.ReactNode;
-  /** Server CSV export of every row matching the current filters. */
-  onExport?: () => Promise<void>;
+  /**
+   * Server CSV export (API path, e.g. "/packing/entries/export"): Export downloads every row
+   * matching the current search and filters; Export selected sends the chosen rows' ids.
+   */
+  exportPath?: string;
+  /** Query for the export; defaults to the table's own params. */
+  exportParams?: Record<string, string | number | undefined>;
   /** Menu items for a row's ⋯ button. */
   rowActions?: (row: T) => React.ReactNode;
   onRowClick?: (row: T) => void;
   /** Enables row checkboxes; renders bulk actions for the selection. */
   bulkActions?: (rows: T[], clear: () => void) => React.ReactNode;
-  exportName?: string;
-  /** Layout for "Export selected" when it must match the server export; defaults to the columns' csv. */
-  exportColumns?: { header: string; value: (row: T) => string | number | null | undefined }[];
 }
 
 function readHidden(id: string, columns: DataColumn<unknown>[]): Set<string> {
@@ -159,12 +162,11 @@ export function DataTable<T>({
   extraFilters = [],
   toolbarStart,
   toolbarEnd,
-  onExport,
+  exportPath,
+  exportParams,
   rowActions,
   onRowClick,
   bulkActions,
-  exportName = id,
-  exportColumns,
 }: DataTableProps<T>) {
   const [hidden, setHidden] = useState(() => readHidden(id, columns as DataColumn<unknown>[]));
   const [selected, setSelected] = useState<Map<string, T>>(new Map());
@@ -181,7 +183,8 @@ export function DataTable<T>({
   }
 
   const visible = columns.filter((column) => !hidden.has(column.id));
-  const selectable = Boolean(bulkActions);
+  // Rows can be picked to export just those, or for the page's bulk actions.
+  const selectable = Boolean(bulkActions || exportPath);
   const filterable = columns.filter((column) => column.filter);
   const sortable = columns.filter((column) => column.sortable);
 
@@ -227,24 +230,14 @@ export function DataTable<T>({
   };
   const clearSelection = () => setSelected(new Map());
 
-  const exportSelected = () => {
-    const layout =
-      exportColumns ??
-      columns.flatMap((column) => (column.csv ? [{ header: column.header, value: column.csv }] : []));
-    downloadCsv(
-      `${exportName}-selected`,
-      layout.map((column) => column.header),
-      [...selected.values()].map((row) => layout.map((column) => column.value(row) ?? null)),
-    );
-  };
-
-  const runExport = async () => {
-    if (!onExport) return;
+  const runExport = async (ids?: string[]) => {
+    if (!exportPath) return;
     setExporting(true);
     try {
-      await onExport();
-    } catch {
-      toast.error("Could not export. Please try again.");
+      const params = { ...(exportParams ?? state.params), ...(ids ? { ids: ids.join(",") } : {}) };
+      await downloadServerCsv(exportPath, params);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Could not export. Please try again.");
     } finally {
       setExporting(false);
     }
@@ -435,7 +428,7 @@ export function DataTable<T>({
           </Button>
         ) : null}
         <div className="ml-auto flex items-center gap-2">
-          {onExport ? (
+          {exportPath ? (
             <Button
               variant="secondary"
               onClick={() => void runExport()}
@@ -603,10 +596,10 @@ export function DataTable<T>({
             Selected: {selected.size}
           </span>
           <span aria-hidden className="h-5 w-px bg-background/25" />
-          {columns.some((column) => column.csv) ? (
-            <Button variant="ghost" size="sm" onClick={exportSelected}>
+          {exportPath ? (
+            <Button variant="ghost" size="sm" disabled={exporting} onClick={() => void runExport([...selected.keys()])}>
               <Download aria-hidden />
-              Export
+              {exporting ? "Exporting…" : "Export selected"}
             </Button>
           ) : null}
           {bulkActions?.([...selected.values()], clearSelection)}

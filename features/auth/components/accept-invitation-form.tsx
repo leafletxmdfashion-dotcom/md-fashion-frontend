@@ -50,7 +50,13 @@ export function AcceptInvitationForm() {
   if (token === undefined || (token && invitation.isPending))
     return <AuthLoading />;
   // Only the server saying so makes a link dead; a rate limit or lost connection does not.
-  if (invitation.isError && !(invitation.error instanceof ApiError && invitation.error.code === "TOKEN_INVALID")) {
+  if (
+    invitation.isError &&
+    !(
+      invitation.error instanceof ApiError &&
+      invitation.error.code === "TOKEN_INVALID"
+    )
+  ) {
     return (
       <>
         <AuthHeading title="Join MD Fashion Center" />
@@ -59,8 +65,14 @@ export function AcceptInvitationForm() {
             ? invitation.error.message
             : "Could not check the invitation. Please try again."}
         </FormAlert>
-        <Button className="mt-4 w-full" onClick={() => void invitation.refetch()} disabled={invitation.isFetching}>
-          {invitation.isFetching ? <Loader2 className="animate-spin" aria-hidden /> : null}
+        <Button
+          className="mt-4 w-full"
+          onClick={() => void invitation.refetch()}
+          disabled={invitation.isFetching}
+        >
+          {invitation.isFetching ? (
+            <Loader2 className="animate-spin" aria-hidden />
+          ) : null}
           Try again
         </Button>
       </>
@@ -118,11 +130,15 @@ export function AcceptInvitationForm() {
         {errors.root?.server ? (
           <FormAlert>{errors.root.server.message}</FormAlert>
         ) : null}
-        <Field id="invite-email" label="Email">
+        <Field
+          id="invite-email"
+          label={details.email ? "Email" : "Phone"}
+          description="You sign in with this."
+        >
           <Input
             id="invite-email"
-            type="email"
-            value={details.email}
+            type="text"
+            value={details.email ?? details.phone ?? ""}
             readOnly
             autoComplete="username"
           />

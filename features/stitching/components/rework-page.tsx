@@ -32,7 +32,7 @@ import { useUrlFilters } from "@/hooks/use-url-filters";
 import { ApiError } from "@/lib/api-client";
 
 import { useRejectReasons, useRejects, useResolveRework, useRework, useUpdateRework } from "../hooks/use-stitching";
-import { issueNumber, pieces, receiptNumber, REWORK_STATUS, reworkNumber } from "../lib/format";
+import { issueNumber, lineLabel, pieces, receiptNumber, REWORK_STATUS, reworkNumber } from "../lib/format";
 import type { RejectRow, ReworkItem, ReworkStatus } from "../types/stitching.types";
 
 const OPEN: ReworkStatus[] = ["PENDING", "ASSIGNED", "IN_PROGRESS"];
@@ -44,7 +44,6 @@ const REWORK_COLUMNS: DataColumn<ReworkItem>[] = [
     sortable: true,
     filter: { type: "number" },
     skeleton: { width: "w-14" },
-    csv: (item) => reworkNumber(item.number),
     cell: (item) => (
       <>
         <p className="font-mono text-xs">{reworkNumber(item.number)}</p>
@@ -59,11 +58,10 @@ const REWORK_COLUMNS: DataColumn<ReworkItem>[] = [
     hideable: false,
     filter: { type: "text", placeholder: "Lot or item contains…" },
     skeleton: { sub: true, width: "w-28" },
-    csv: (item) => `${item.lot.lotNumber} ${item.colour} ${item.sizeLabel}`,
     cell: (item) => (
       <>
         <p className="font-medium">
-          {item.lot.lotNumber} · {item.colour} {item.sizeLabel}
+          {item.lot.lotNumber} · {lineLabel(item.colour, item.sizeLabel)}
         </p>
         <p className="text-xs text-muted-foreground">{item.lot.articleName}</p>
       </>
@@ -76,7 +74,6 @@ const REWORK_COLUMNS: DataColumn<ReworkItem>[] = [
     sortable: true,
     filter: { type: "text", placeholder: "Team contains…" },
     skeleton: { sub: true, width: "w-24" },
-    csv: (item) => item.issue.teamName,
     cell: (item) => (
       <>
         <p>{item.issue.teamName}</p>
@@ -94,7 +91,6 @@ const REWORK_COLUMNS: DataColumn<ReworkItem>[] = [
     sortable: true,
     filter: { type: "number" },
     skeleton: { sub: true, width: "w-10" },
-    csv: (item) => item.pending,
     cell: (item) => (
       <>
         <p className="font-medium tabular-nums">
@@ -121,7 +117,6 @@ const REWORK_COLUMNS: DataColumn<ReworkItem>[] = [
       })),
     },
     skeleton: { width: "w-16" },
-    csv: (item) => REWORK_STATUS[item.status].label,
     cell: (item) => <StatusChip tone={REWORK_STATUS[item.status].tone}>{REWORK_STATUS[item.status].label}</StatusChip>,
   },
 ];
@@ -133,7 +128,6 @@ const REJECT_COLUMNS: DataColumn<RejectRow>[] = [
     sortable: true,
     filter: { type: "date" },
     skeleton: { width: "w-20" },
-    csv: (row) => row.date,
     cell: (row) => (
       <>
         <p className="whitespace-nowrap">{formatDate(row.date)}</p>
@@ -148,11 +142,10 @@ const REJECT_COLUMNS: DataColumn<RejectRow>[] = [
     hideable: false,
     filter: { type: "text", placeholder: "Lot or item contains…" },
     skeleton: { sub: true, width: "w-28" },
-    csv: (row) => `${row.lot.lotNumber} ${row.colour} ${row.sizeLabel}`,
     cell: (row) => (
       <>
         <p className="font-medium">
-          {row.lot.lotNumber} · {row.colour} {row.sizeLabel}
+          {row.lot.lotNumber} · {lineLabel(row.colour, row.sizeLabel)}
         </p>
         <p className="text-xs text-muted-foreground">
           {row.lot.articleName} · {row.teamName}
@@ -166,7 +159,6 @@ const REJECT_COLUMNS: DataColumn<RejectRow>[] = [
     sortable: true,
     filter: { type: "text", placeholder: "Reason contains…" },
     skeleton: { width: "w-28" },
-    csv: (row) => row.reason,
     cell: (row) => row.reason,
   },
   {
@@ -176,7 +168,6 @@ const REJECT_COLUMNS: DataColumn<RejectRow>[] = [
     sortable: true,
     filter: { type: "number" },
     skeleton: { width: "w-10" },
-    csv: (row) => row.quantity,
     cell: (row) => <span className="font-medium tabular-nums">{row.quantity}</span>,
   },
 ];
@@ -188,12 +179,19 @@ function AssignDialog({ item, onOpenChange }: { item: ReworkItem; onOpenChange: 
 
   const items = [
     { value: "", label: "The team that stitched it" },
-    ...(karigars.data ?? []).map((k) => ({ value: k.id, label: `${k.name} · ${karigarCode(k.number)}` })),
+    ...(karigars.data ?? []).map((k) => ({
+      value: k.id,
+      label: `${k.name} · ${karigarCode(k.number)}`,
+    })),
   ];
 
   const save = async (status: "ASSIGNED" | "IN_PROGRESS") => {
     try {
-      await update.mutateAsync({ id: item.id, status, assignedToId: assignee || null });
+      await update.mutateAsync({
+        id: item.id,
+        status,
+        assignedToId: assignee || null,
+      });
       toast.success(`${reworkNumber(item.number)} ${status === "ASSIGNED" ? "assigned" : "started"}.`);
       onOpenChange(false);
     } catch {
@@ -207,7 +205,7 @@ function AssignDialog({ item, onOpenChange }: { item: ReworkItem; onOpenChange: 
         <DialogHeader>
           <DialogTitle>Assign {reworkNumber(item.number)}</DialogTitle>
           <DialogDescription>
-            {pieces(item.pending)} of {item.lot.lotNumber} {item.colour} {item.sizeLabel} to fix.
+            {pieces(item.pending)} of {item.lot.lotNumber} {lineLabel(item.colour, item.sizeLabel)} to fix.
           </DialogDescription>
         </DialogHeader>
         {update.error ? (
@@ -250,7 +248,10 @@ function ResolveDialog({ item, onOpenChange }: { item: ReworkItem; onOpenChange:
   const [other, setOther] = useState("");
   const [date, setDate] = useState(todayISO());
   const [error, setError] = useState<string | null>(null);
-  const reasonItems = (reasons.data ?? []).map((value) => ({ value, label: value }));
+  const reasonItems = (reasons.data ?? []).map((value) => ({
+    value,
+    label: value,
+  }));
 
   const fixed = recovered.trim() === "" ? 0 : Number(recovered);
   const lost = failed.trim() === "" ? 0 : Number(failed);
@@ -291,8 +292,8 @@ function ResolveDialog({ item, onOpenChange }: { item: ReworkItem; onOpenChange:
         <DialogHeader>
           <DialogTitle>Rework result · {reworkNumber(item.number)}</DialogTitle>
           <DialogDescription>
-            {item.lot.lotNumber} {item.colour} {item.sizeLabel}: {pieces(item.pending)} waiting. Fixed pieces become
-            Good and are paid to {item.issue.teamName}; failed ones are rejected.
+            {item.lot.lotNumber} {lineLabel(item.colour, item.sizeLabel)}: {pieces(item.pending)} waiting. Fixed pieces
+            become Good and are paid to {item.issue.teamName}; failed ones are rejected.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={(event) => void submit(event)} noValidate className="grid gap-4">
@@ -369,8 +370,16 @@ function ResolveDialog({ item, onOpenChange }: { item: ReworkItem; onOpenChange:
 
 function ReworkTable({ canResolve }: { canResolve: boolean }) {
   const table = useDataTableState(REWORK_COLUMNS);
-  const rework = useRework({ ...table.params, page: table.page, pageSize: table.pageSize });
-  const [dialog, setDialog] = useState<{ kind: "assign" | "resolve"; item: ReworkItem; key: number } | null>(null);
+  const rework = useRework({
+    ...table.params,
+    page: table.page,
+    pageSize: table.pageSize,
+  });
+  const [dialog, setDialog] = useState<{
+    kind: "assign" | "resolve";
+    item: ReworkItem;
+    key: number;
+  } | null>(null);
   const close = (open: boolean) => (open ? undefined : setDialog(null));
 
   // The main action stays visible on every open row, not only in the row menu.
@@ -415,15 +424,14 @@ function ReworkTable({ canResolve }: { canResolve: boolean }) {
         error={rework.error}
         onRetry={() => void rework.refetch()}
         searchLabel="Search rework"
-        searchPlaceholder="Search lot, colour, team, RW-no…"
+        searchPlaceholder="Search lot, team, RW-no…"
         isEmpty={Object.keys(table.params).length === 0}
         empty={{
           icon: RotateCcw,
           title: "No rework waiting",
           description: "Pieces marked Rework when stitching is received appear here until they are fixed or rejected.",
         }}
-        exportName="rework"
-        bulkActions={() => null}
+        exportPath="/stitching/rework/export"
         onRowClick={
           canResolve
             ? (item) => (OPEN.includes(item.status) ? setDialog({ kind: "resolve", item, key: Date.now() }) : undefined)
@@ -452,7 +460,11 @@ function ReworkTable({ canResolve }: { canResolve: boolean }) {
 
 function RejectTable() {
   const table = useDataTableState(REJECT_COLUMNS);
-  const rejects = useRejects({ ...table.params, page: table.page, pageSize: table.pageSize });
+  const rejects = useRejects({
+    ...table.params,
+    page: table.page,
+    pageSize: table.pageSize,
+  });
 
   return (
     <DataTable
@@ -467,22 +479,21 @@ function RejectTable() {
       error={rejects.error}
       onRetry={() => void rejects.refetch()}
       searchLabel="Search rejects"
-      searchPlaceholder="Search lot, colour, reason…"
+      searchPlaceholder="Search lot, reason…"
       isEmpty={Object.keys(table.params).length === 0}
       empty={{
         icon: Ban,
         title: "No rejected pieces",
         description: "Rejects from receipts and failed rework appear here with their reason.",
       }}
-      exportName="rejects"
-      bulkActions={() => null}
+      exportPath="/stitching/rejects/export"
     />
   );
 }
 
 export function ReworkPage() {
   const { data: user } = useCurrentUser();
-  const { filters, setFilters } = useUrlFilters(["tab"]);
+  const { filters, resetTo: setFilters } = useUrlFilters(["tab"]);
   const tab = filters.tab === "rejects" ? "rejects" : "rework";
   // Unfiltered totals for the tab labels; shares the dashboard's cached queries.
   const toFix = useRework({ page: 1, pageSize: 1 }).data?.pending;
@@ -520,7 +531,7 @@ function TabCount({ value, label }: { value: number | undefined; label: string }
   return (
     <span
       aria-label={`${value} ${label}`}
-      className="rounded-full bg-muted-foreground/10 px-1.5 text-xs font-medium text-muted-foreground tabular-nums"
+      className="rounded-full bg-muted-foreground/10 px-1.5 text-xs font-medium text-muted-foreground tabular-nums in-data-active:bg-current/15 in-data-active:text-inherit"
     >
       {value.toLocaleString("en-IN")}
     </span>

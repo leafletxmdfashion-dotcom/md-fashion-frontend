@@ -22,8 +22,6 @@ export interface DataColumn<T> {
   headerHidden?: boolean;
   /** False keeps the column out of the column picker (e.g. the identifying column). */
   hideable?: boolean;
-  /** Value written when exporting selected rows. */
-  csv?: (row: T) => string | number | null | undefined;
 }
 
 /** Query-string keys a column's filter uses; mirrors md_backend/src/lib/list-query.ts. */

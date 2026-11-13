@@ -21,20 +21,23 @@ const name = z.string().trim().min(1, "Name is required.").max(100, "Name is too
 
 function confirmMatches<T extends { newPassword: string; confirmPassword: string }>(value: T, ctx: z.RefinementCtx) {
   if (value.newPassword !== value.confirmPassword) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["confirmPassword"], message: "Passwords do not match." });
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["confirmPassword"],
+      message: "Passwords do not match.",
+    });
   }
 }
 
 export const loginSchema = z.object({
-  email,
+  // Email or phone; the server decides which by the @.
+  identifier: z.string().trim().min(1, "Enter your email or phone.").max(254, "Too long."),
   password: z.string().min(1, "Password is required.").max(PASSWORD_MAX_LENGTH, "Password is too long."),
 });
 
 export const forgotPasswordSchema = z.object({ email });
 
-export const resetPasswordSchema = z
-  .object({ newPassword, confirmPassword: z.string() })
-  .superRefine(confirmMatches);
+export const resetPasswordSchema = z.object({ newPassword, confirmPassword: z.string() }).superRefine(confirmMatches);
 
 export const acceptInvitationSchema = z
   .object({ name, newPassword, confirmPassword: z.string() })

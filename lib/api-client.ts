@@ -8,6 +8,7 @@ export type ApiErrorCode =
   | "AUTH_INVALID_CREDENTIALS"
   | "AUTH_UNAUTHENTICATED"
   | "AUTH_FORBIDDEN"
+  | "PASSWORD_CHANGE_REQUIRED"
   | "AUTH_CURRENT_PASSWORD_INCORRECT"
   | "PASSWORD_TOO_WEAK"
   | "PASSWORD_REUSED"
@@ -40,7 +41,11 @@ export interface ApiSuccess<T> {
 
 interface ApiErrorBody {
   success: false;
-  error: { code: ApiErrorCode; message: string; details?: Record<string, string[]> };
+  error: {
+    code: ApiErrorCode;
+    message: string;
+    details?: Record<string, string[]>;
+  };
 }
 
 const CSRF_HEADER = "x-csrf-token";

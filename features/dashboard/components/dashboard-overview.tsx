@@ -132,7 +132,11 @@ function FabricSnapshot({ canPost, canSeeCost }: { canPost: boolean; canSeeCost:
   // Each panel asks the server for exactly what it shows: six rows, plus totals.
   const fabrics = useFabricList({ stock: "low", pageSize: 6 });
   const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
-  const month = useInwards({ dateFrom: monthStart, status: "posted", pageSize: 1 });
+  const month = useInwards({
+    dateFrom: monthStart,
+    status: "posted",
+    pageSize: 1,
+  });
   const recent = useInwards({ pageSize: 6 });
 
   const summary = fabrics.data?.summary;
@@ -293,10 +297,15 @@ export function DashboardOverview() {
   const [purchasing, setPurchasing] = useState(0);
   const sections = useMemo(
     () =>
-      filterNavigation(navigation, user?.permissions ?? [])
-        .map((group) => ({ ...group, items: group.items.filter((item) => item.href && item.href !== "/dashboard") }))
+      filterNavigation(navigation, user?.permissions ?? [], {
+        linkedPerson: Boolean(user?.karigarId),
+      })
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => item.href && item.href !== "/dashboard"),
+        }))
         .filter((group) => group.items.length > 0),
-    [user?.permissions],
+    [user?.permissions, user?.karigarId],
   );
 
   if (!user) return null;
@@ -318,9 +327,7 @@ export function DashboardOverview() {
     >
       <div className="grid gap-6">
         {hasPermission(user, "stitching.view") ? <ProductionSnapshot /> : null}
-        {canSeeFabric ? (
-          <FabricSnapshot canPost={canPost} canSeeCost={hasPermission(user, "costing.view")} />
-        ) : null}
+        {canSeeFabric ? <FabricSnapshot canPost={canPost} canSeeCost={hasPermission(user, "costing.view")} /> : null}
 
         <section className="grid gap-3">
           <h2 className="text-[15px] font-semibold">Modules</h2>

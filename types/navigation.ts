@@ -13,6 +13,8 @@ export interface NavItem {
   href?: string;
   icon: LucideIcon;
   permission?: Permission;
+  /** Only for logins linked to a staff / karigar record (their own ledger). */
+  linkedPersonOnly?: boolean;
   exact?: boolean;
   /** Marks a module with no page yet: app/(dashboard)/[...slug] serves it. Remove once built. */
   description?: string;

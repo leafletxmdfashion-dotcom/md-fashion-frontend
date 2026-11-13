@@ -10,7 +10,9 @@ test.describe("navigation", () => {
     await expect(page).toHaveURL(/\/dashboard$/);
 
     const sidebar = page.locator("[data-sidebar=sidebar]").first();
-    for (const item of navigation.flatMap((group) => group.items)) {
+    // My Ledger is only for logins linked to a staff / karigar record; the owner has none.
+    await expect(sidebar.getByRole("link", { name: "My Ledger", exact: true })).toHaveCount(0);
+    for (const item of navigation.flatMap((group) => group.items).filter((item) => !item.linkedPersonOnly)) {
       await sidebar.getByRole("link", { name: item.title, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`${item.href}$`));
       await expect(sidebar.locator("[data-active]")).toHaveText(item.title);

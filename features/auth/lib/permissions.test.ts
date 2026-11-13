@@ -6,7 +6,16 @@ import type { NavGroup } from "@/types/navigation";
 import { filterNavigation, hasPermission } from "./permissions";
 
 const groups: NavGroup[] = [
-  { items: [{ title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard.view" }] },
+  {
+    items: [
+      {
+        title: "Dashboard",
+        href: "/dashboard",
+        icon: LayoutDashboard,
+        permission: "dashboard.view",
+      },
+    ],
+  },
   {
     title: "Management",
     items: [
@@ -15,13 +24,27 @@ const groups: NavGroup[] = [
         icon: Boxes,
         items: [
           { title: "Stock", href: "/inventory", permission: "fabric.view" },
-          { title: "Adjust", href: "/inventory/adjust", permission: "fabric.adjust" },
+          {
+            title: "Adjust",
+            href: "/inventory/adjust",
+            permission: "fabric.adjust",
+          },
         ],
       },
       { title: "Activity", href: "/activity", icon: Users },
     ],
   },
-  { title: "System", items: [{ title: "Settings", href: "/settings", icon: Settings, permission: "roles.manage" }] },
+  {
+    title: "System",
+    items: [
+      {
+        title: "Settings",
+        href: "/settings",
+        icon: Settings,
+        permission: "roles.manage",
+      },
+    ],
+  },
 ];
 
 describe("filterNavigation", () => {
@@ -43,6 +66,28 @@ describe("filterNavigation", () => {
 
   it("keeps items without a permission requirement", () => {
     expect(filterNavigation(groups, [])[0]!.items.map((item) => item.title)).toEqual(["Activity"]);
+  });
+});
+
+describe("filterNavigation: own ledger", () => {
+  const groups: NavGroup[] = [
+    {
+      items: [
+        {
+          title: "My Ledger",
+          href: "/my-ledger",
+          icon: Users,
+          linkedPersonOnly: true,
+        },
+      ],
+    },
+  ];
+
+  it("shows My Ledger only to logins linked to a staff or karigar record", () => {
+    expect(filterNavigation(groups, ["users.manage"])).toEqual([]);
+    expect(filterNavigation(groups, [], { linkedPerson: true })[0]?.items.map((item) => item.title)).toEqual([
+      "My Ledger",
+    ]);
   });
 });
 

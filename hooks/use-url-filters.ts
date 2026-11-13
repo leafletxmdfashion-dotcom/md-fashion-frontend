@@ -38,6 +38,19 @@ export function useUrlFilters<K extends string>(keys: readonly K[]) {
     setPage: (next: number) => write({ page: next > 1 ? String(next) : "" }),
     setPageSize: (next: number) => write({ size: next === DEFAULT_PAGE_SIZE ? "" : String(next) }),
     clearFilters: () => write(Object.fromEntries(keys.map((key) => [key, ""]))),
+    /**
+     * Starts the query string over with only `patch`: for switching tabs or views, so one
+     * table's search, sort and column filters never carry into the next.
+     */
+    resetTo: (patch: Partial<Record<K, string>>) => {
+      const next = new URLSearchParams();
+
+      for (const [key, value] of Object.entries(patch)) if (value) next.set(key, String(value));
+
+      const query = next.toString();
+
+      window.history.replaceState(null, "", query ? `?${query}` : window.location.pathname);
+    },
     isFiltered: keys.some((key) => filters[key]),
   };
 }

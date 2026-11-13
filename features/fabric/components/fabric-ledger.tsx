@@ -14,7 +14,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
 import { hasPermission } from "@/features/auth/lib/permissions";
 import { ApiError } from "@/lib/api-client";
-import { downloadServerCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 
 import { useFabric, useFabricList, useFabricOptions, useMovements } from "../hooks/use-fabric";
@@ -73,7 +72,6 @@ const COLUMNS: DataColumn<Movement>[] = [
     sortable: true,
     filter: { type: "date" },
     skeleton: { width: "w-20" },
-    csv: (movement) => movement.date,
     cell: (movement) => <span className="whitespace-nowrap text-muted-foreground">{formatDate(movement.date)}</span>,
   },
   {
@@ -89,7 +87,6 @@ const COLUMNS: DataColumn<Movement>[] = [
       })),
     },
     skeleton: { width: "w-20" },
-    csv: (movement) => MOVEMENT_LABEL[movement.type],
     cell: (movement) => (
       <>
         <StatusChip tone={TYPE_TONE[movement.type]}>{MOVEMENT_LABEL[movement.type]}</StatusChip>
@@ -103,7 +100,6 @@ const COLUMNS: DataColumn<Movement>[] = [
     sortable: true,
     filter: { type: "text", placeholder: "Name or code contains…" },
     skeleton: { sub: true, width: "w-24" },
-    csv: (movement) => `${movement.fabric.name} (${movement.fabric.code})`,
     cell: (movement) => (
       <>
         <p className="font-medium">{movement.fabric.name}</p>
@@ -116,7 +112,6 @@ const COLUMNS: DataColumn<Movement>[] = [
     header: "Reference",
     className: "hidden max-w-64 md:table-cell",
     skeleton: { sub: true, width: "w-16" },
-    csv: (movement) => (movement.inward ? inwardNumber(movement.inward.number) : movement.reason),
     cell: (movement) => <Reference movement={movement} />,
   },
   {
@@ -127,7 +122,6 @@ const COLUMNS: DataColumn<Movement>[] = [
     sortable: true,
     filter: { type: "number" },
     skeleton: { width: "w-10" },
-    csv: (movement) => movement.qtyIn || null,
     cell: (movement) =>
       movement.qtyIn ? (
         <span className="text-success">+{formatNumber(movement.qtyIn)}</span>
@@ -143,7 +137,6 @@ const COLUMNS: DataColumn<Movement>[] = [
     sortable: true,
     filter: { type: "number" },
     skeleton: { width: "w-10" },
-    csv: (movement) => movement.qtyOut || null,
     cell: (movement) =>
       movement.qtyOut ? (
         <span className="text-destructive">−{formatNumber(movement.qtyOut)}</span>
@@ -175,7 +168,6 @@ const COLUMNS: DataColumn<Movement>[] = [
     align: "right",
     className: "hidden sm:table-cell",
     skeleton: { width: "w-16" },
-    csv: (movement) => `${movement.balance} ${UNIT_LABEL[movement.fabric.unit]}`,
     cell: (movement) => (
       <span className="font-medium whitespace-nowrap">{formatQty(movement.balance, movement.fabric.unit)}</span>
     ),
@@ -187,7 +179,6 @@ const COLUMNS: DataColumn<Movement>[] = [
     sortable: true,
     filter: { type: "text", placeholder: "Name contains…" },
     skeleton: { width: "w-20" },
-    csv: (movement) => movement.createdBy,
     cell: (movement) => <span className="text-muted-foreground">{movement.createdBy ?? "—"}</span>,
   },
 ];
@@ -424,9 +415,8 @@ export function FabricLedger() {
                   ]
                 : []
             }
-            onExport={() => downloadServerCsv("/fabrics/movements/export", params)}
-            exportName="fabric-ledger"
-            bulkActions={() => null}
+            exportPath="/fabrics/movements/export"
+            exportParams={params}
             rowActions={(movement) => (
               <>
                 {fabricId ? null : (

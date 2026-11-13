@@ -22,8 +22,11 @@ import type { CurrentUser } from "@/features/auth/types/auth.types";
 export function AppSidebar({ user }: { user: CurrentUser }) {
   // Visibility only; every route's data is still authorized by the API.
   const groups = useMemo(
-    () => filterNavigation(navigation, user.permissions),
-    [user.permissions],
+    () =>
+      filterNavigation(navigation, user.permissions, {
+        linkedPerson: user.karigarId !== null,
+      }),
+    [user.permissions, user.karigarId],
   );
 
   return (

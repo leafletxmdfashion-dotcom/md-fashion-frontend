@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { Field, fieldProps } from "@/components/form/field";
 import { FormAlert } from "@/components/form/form-alert";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,7 +23,6 @@ import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { applyServerError } from "@/lib/form-errors";
-import { cn } from "@/lib/utils";
 
 import { useFabric, useUpdateFabric } from "../hooks/use-fabric";
 import { UNIT_LABEL, UNIT_NAME } from "../lib/format";
@@ -109,29 +109,18 @@ function EditForm({ fabric, onDone }: { fabric: Fabric; onDone: () => void }) {
             control={form.control}
             name="unit"
             render={({ field }) => (
-              <div
+              <SegmentedControl
                 id="fabric-unit"
-                role="radiogroup"
                 aria-label="Unit"
-                className="grid h-9 grid-cols-2 gap-1 rounded-lg bg-muted p-1"
-              >
-                {UNITS.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={field.value === value}
-                    disabled={unitFixed && field.value !== value}
-                    onClick={() => field.onChange(value)}
-                    className={cn(
-                      "rounded-md text-[13px] font-medium text-muted-foreground transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-40",
-                      field.value === value && "bg-card text-foreground shadow-sm",
-                    )}
-                  >
-                    {UNIT_NAME[value]}
-                  </button>
-                ))}
-              </div>
+                fill
+                value={field.value}
+                onValueChange={field.onChange}
+                options={UNITS.map((value) => ({
+                  value,
+                  label: UNIT_NAME[value],
+                  disabled: unitFixed && field.value !== value,
+                }))}
+              />
             )}
           />
         </Field>

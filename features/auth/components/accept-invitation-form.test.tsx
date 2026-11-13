@@ -31,6 +31,7 @@ describe("AcceptInvitationForm", () => {
       .mockRejectedValueOnce(new ApiError(429, "RATE_LIMITED", "Too many attempts. Try again in 12 minutes."))
       .mockResolvedValueOnce({
         email: "new.hire@garment.test",
+        phone: null,
         name: "New Hire",
         roleName: "Staff",
         expiresAt: "2026-11-01T00:00:00Z",

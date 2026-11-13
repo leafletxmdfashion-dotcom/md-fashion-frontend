@@ -42,9 +42,10 @@ const WORK_SUGGESTIONS = [
   "Buttoning",
 ];
 
-const lineKey = (row: Pick<BalanceRow, "colour" | "size">) => JSON.stringify([row.colour, row.size]);
+// Bulk: one row per size, every colour together.
+const lineKey = (row: Pick<BalanceRow, "size">) => row.size;
 
-/** A team the pieces go to, with how many of each colour and size it gets (as typed). */
+/** A team the pieces go to, with how many of each size it gets (as typed). */
 interface Slot {
   teamId: string;
   quantities: Record<string, string>;
@@ -178,7 +179,6 @@ export function IssueDialog({
         teams: sent.map((entry) => ({
           teamId: entry.teamId,
           lines: entry.rows.map((row) => ({
-            colour: row.colour,
             sizeLabel: row.size,
             quantity: count(entry.slot.quantities[lineKey(row)]),
           })),
@@ -197,7 +197,7 @@ export function IssueDialog({
     } catch (caught) {
       const apiError = caught instanceof ApiError ? caught : null;
 
-      // Errors come back on the sent arrays; map them to the team and the colour/size on screen.
+      // Errors come back on the sent arrays; map them to the team and the size on screen.
       const mapped = Object.fromEntries(
         Object.entries(apiError?.details ?? {}).map(([path, messages]) => {
           const line = /^teams\.(\d+)\.lines\.(\d+)\./.exec(path);
@@ -245,11 +245,16 @@ export function IssueDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {(lots.data ?? []).map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
+                    <SelectItem
+                      key={item.id}
+                      value={item.id}
+                      description={
+                        <>
+                          {item.articleName} · {pieces(item.available)} waiting
+                        </>
+                      }
+                    >
                       {item.lotNumber}
-                      <span className="ml-1.5 text-xs text-muted-foreground">
-                        {item.articleName} · {pieces(item.available)} waiting
-                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -311,7 +316,10 @@ export function IssueDialog({
                   <div key={index} className="grid gap-1">
                     <div className="flex items-center gap-1.5">
                       <Select
-                        items={options.map((item) => ({ value: item.id, label: item.name }))}
+                        items={options.map((item) => ({
+                          value: item.id,
+                          label: item.name,
+                        }))}
                         value={slot.teamId || null}
                         onValueChange={(value) => updateSlot(index, { teamId: value ?? "" })}
                       >
@@ -324,11 +332,17 @@ export function IssueDialog({
                         </SelectTrigger>
                         <SelectContent>
                           {options.map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
+                            <SelectItem
+                              key={item.id}
+                              value={item.id}
+                              description={
+                                <>
+                                  {item.members.length} member
+                                  {item.members.length === 1 ? "" : "s"}
+                                </>
+                              }
+                            >
                               {item.name}
-                              <span className="ml-1.5 text-xs text-muted-foreground">
-                                {item.members.length} member{item.members.length === 1 ? "" : "s"}
-                              </span>
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -398,7 +412,7 @@ export function IssueDialog({
                   <table className="w-full text-[13px]">
                     <thead className="bg-muted/40 text-xs text-muted-foreground">
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium">Colour · size</th>
+                        <th className="px-3 py-2 text-left font-medium">Size</th>
                         <th className="px-3 py-2 text-right font-medium">Waiting</th>
                         {slots.map((slot, index) => (
                           <th key={index} className="w-28 px-2 py-2 text-right font-medium">
@@ -413,12 +427,13 @@ export function IssueDialog({
                         const key = lineKey(row);
                         const left = leftOf(row);
                         const error = errors[key];
-                        const label = `${row.colour} ${row.size}`;
+                        const label = `Size ${row.size}`;
 
                         return (
                           <tr key={key} className="align-top">
                             <td className="px-3 py-2 font-medium">
-                              {label}
+                              {row.size}
+                              <span className="ml-1.5 text-xs font-normal text-muted-foreground">all colours</span>
                               {error ? <p className="mt-0.5 font-normal text-destructive">{error}</p> : null}
                             </td>
                             <td className="px-3 py-2 text-right tabular-nums">{row.unissued}</td>

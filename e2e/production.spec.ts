@@ -57,7 +57,10 @@ test("new cutting: typed lot, item and Thaan on one page, finalized into stock, 
   // 1 · Lot & item: a typed lot number and a brand-new item.
   await page.getByLabel("Lot number").fill("LOT-45");
   await expect(page.getByText("New lot · created when you save")).toBeVisible();
-  await page.getByLabel("Item / design").fill("Polo T-Shirt");
+  // The item picker lists saved items; a new one is added from its search box.
+  await page.getByLabel("Item / design").click();
+  await page.getByLabel("Search items").fill("Polo T-Shirt");
+  await page.getByRole("button", { name: "Add new item “Polo T-Shirt”" }).click();
   await page.getByLabel("Fabric", { exact: true }).click();
   await page.getByLabel("Fabric", { exact: true }).fill("Polo");
   await page.getByRole("option", { name: /Polo Pique/ }).click();

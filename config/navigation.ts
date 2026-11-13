@@ -1,4 +1,5 @@
 import {
+  BookUser,
   Calculator,
   ChartNoAxesCombined,
   ClipboardCheck,
@@ -14,7 +15,6 @@ import {
   Shield,
   Shirt,
   UserRound,
-  Users,
   UsersRound,
   Wallet,
   Warehouse,
@@ -79,19 +79,19 @@ export const navigation: NavGroup[] = [
         title: "Packing",
         href: "/packing",
         icon: Package,
-        description: "Pack Good pieces by Lot, article, colour and size.",
+        permission: "packing.view",
       },
       {
         title: "Godown",
         href: "/godown",
         icon: Warehouse,
-        description: "Receive packed goods into the godown and confirm quantities.",
+        permission: "godown.view",
       },
       {
         title: "Finished Goods",
         href: "/finished-goods",
         icon: PackageCheck,
-        description: "Finished goods balances and dispatch by challan.",
+        permission: "godown.view",
       },
     ],
   },
@@ -99,7 +99,7 @@ export const navigation: NavGroup[] = [
     title: "Workers",
     items: [
       {
-        title: "Karigar Master",
+        title: "Staff & Karigar",
         href: "/karigar",
         icon: UserRound,
         exact: true,
@@ -115,7 +115,13 @@ export const navigation: NavGroup[] = [
         title: "Payments",
         href: "/karigar/payments",
         icon: Wallet,
-        description: "Earnings, advances, deductions and outstanding balance per person.",
+        permission: "payments.view",
+      },
+      {
+        title: "My Ledger",
+        href: "/my-ledger",
+        icon: BookUser,
+        linkedPersonOnly: true,
       },
     ],
   },
@@ -139,12 +145,6 @@ export const navigation: NavGroup[] = [
         href: "/approvals",
         icon: ClipboardCheck,
         description: "Review requested corrections with old and proposed values.",
-      },
-      {
-        title: "Users",
-        href: "/users",
-        icon: Users,
-        permission: "users.view",
       },
       {
         title: "Roles & Permissions",

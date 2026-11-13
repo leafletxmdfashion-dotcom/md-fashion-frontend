@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { costOf, type BatchResult, type Issue } from "../lib/cutting-calc";
-import { microKgText, moneyText } from "../lib/format";
+import { microKgText, moneyText, type QtyUnit } from "../lib/format";
 import { STEPS, type StepId } from "../lib/form-model";
 
 export interface Blocker {
@@ -41,13 +41,15 @@ export function SummaryAside({
   storeKg,
   toIssueKg,
   actions,
+  unit,
 }: {
+  unit: QtyUnit;
   calc: BatchResult;
   /** Calculator warnings, on form row paths. */
   warnings: Issue[];
   blockers: Blocker[];
   onGoTo: (step: StepId) => void;
-  /** Average purchase rate per kg; null when costs are hidden or unknown. */
+  /** Average purchase rate per kg or m; null when costs are hidden or unknown. */
   fabricRate: number | null;
   storeKg: bigint | null;
   toIssueKg: bigint;
@@ -89,7 +91,7 @@ export function SummaryAside({
           <dt className="text-xs text-muted-foreground">Pala</dt>
           <dd className="text-2xl font-bold tabular-nums">{totals.confirmedPala}</dd>
           <dd className="text-xs text-muted-foreground">
-            {calc.marker.activePalaKg === null ? "No Pala weight" : `${microKgText(calc.marker.activePalaKg)} each`}
+            {calc.marker.activePalaKg === null ? "No Pala weight" : `${microKgText(calc.marker.activePalaKg, unit)} each`}
           </dd>
         </div>
       </dl>
@@ -115,16 +117,16 @@ export function SummaryAside({
       <div className="border-t pt-3">
         <p className="mb-1 text-xs font-medium text-muted-foreground">Fabric</p>
         <dl className="divide-y">
-          <Line label="Issued" value={microKgText(totals.issuedKg)} />
-          <Line label="Consumed" value={microKgText(totals.consumedKg)} />
-          <Line label="Returned" value={microKgText(totals.returnedKg)} />
+          <Line label="Issued" value={microKgText(totals.issuedKg, unit)} />
+          <Line label="Consumed" value={microKgText(totals.consumedKg, unit)} />
+          <Line label="Returned" value={microKgText(totals.returnedKg, unit)} />
           <Line
             label={wastePercent === null ? "Wastage" : `Wastage (${wastePercent.toLocaleString("en-IN")}%)`}
-            value={microKgText(totals.wastageKg)}
+            value={microKgText(totals.wastageKg, unit)}
             tone={totals.wastageKg > 0n ? "warning" : undefined}
           />
           {storeKg !== null ? (
-            <Line label="In store" value={microKgText(storeKg)} tone={short ? "danger" : "muted"} />
+            <Line label="In store" value={microKgText(storeKg, unit)} tone={short ? "danger" : "muted"} />
           ) : null}
           {rate !== null ? (
             <Line label="Fabric cost (est.)" value={moneyText(Number(costOf(totals.consumedKg + totals.wastageKg, rate)) / 100)} />
@@ -138,7 +140,7 @@ export function SummaryAside({
           )}
           Issued = consumed + returned + wastage
         </p>
-        {short ? <p className="mt-1 text-xs text-destructive">This cutting issues {microKgText(toIssueKg)}, more than the store holds.</p> : null}
+        {short ? <p className="mt-1 text-xs text-destructive">This cutting issues {microKgText(toIssueKg, unit)}, more than the store holds.</p> : null}
       </div>
 
       <div className="border-t pt-3">

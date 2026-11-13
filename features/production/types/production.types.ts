@@ -9,7 +9,7 @@ export type RollStatus = BatchStatus;
 
 export type WeightSource = "MEASURED" | "CALCULATED";
 
-export type KarigarCategory = "CUTTING_MASTER" | "TAILOR" | "HELPER" | "OTHER";
+export type KarigarCategory = "CUTTING_MASTER" | "TAILOR" | "HELPER" | "PACKER" | "STAFF" | "OTHER";
 
 export type PayMode = "PER_PIECE" | "PER_PALA" | "PER_KG" | "FIXED_JOB" | "SALARY";
 
@@ -18,8 +18,13 @@ export type ListFilters = Record<string, string | number | undefined>;
 export interface MarkerSettings {
   widthM: string | null;
   lengthM: string | null;
+  /** The unit Panaha / layer length were typed in; the values above are always metres. */
+  widthUnit?: "M" | "IN";
+  lengthUnit?: "M" | "IN";
   gsm: string | null;
   measuredPalaKg: string | null;
+  /** The Pala in the other unit (m for kg fabric, kg for metre fabric); recorded only. */
+  palaAltValue?: string | null;
   weightSource: WeightSource;
   repetitionsPerLayer: number;
 }
@@ -39,7 +44,12 @@ export interface Article {
   code: string;
   name: string;
   active: boolean;
-  defaultFabric: { id: string; code: string; name: string; unit: string } | null;
+  defaultFabric: {
+    id: string;
+    code: string;
+    name: string;
+    unit: string;
+  } | null;
   defaultMarker: MarkerDefaults | null;
   lots: number;
   createdAt: string;
@@ -64,6 +74,14 @@ export interface Karigar {
   earned: number | null;
   active: boolean;
   notes: string | null;
+  /** The login this person uses to see their own ledger. */
+  /** The login linked to this person (email or phone, at least one). */
+  user: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+  } | null;
   createdAt: string;
 }
 
@@ -75,6 +93,16 @@ export interface KarigarInput {
   payRate: number;
   active: boolean;
   notes: string | null;
+  /** Left out: the login link stays as it is. Changing it needs users.manage. */
+  userId?: string | null;
+  /** A new login made with this person (needs users.manage). */
+  login?: {
+    email: string | null;
+    phone: string | null;
+    roleKey: string;
+    mode: "INVITE" | "PASSWORD";
+    password?: string;
+  };
 }
 
 export interface KarigarOption {
@@ -104,6 +132,9 @@ export interface ProductionSummary {
   wastageKgThisMonth: string;
   consumedKgThisMonth: string;
   inCuttingKg: string;
+  wastageMThisMonth: string;
+  consumedMThisMonth: string;
+  inCuttingM: string;
   openBatches: number;
 }
 
@@ -118,7 +149,13 @@ export interface BatchListItem {
   number: number;
   cuttingDate: string;
   status: BatchStatus;
-  lot: { id: string; lotNumber: string; articleName: string; fabricName: string };
+  lot: {
+    id: string;
+    lotNumber: string;
+    articleName: string;
+    fabricName: string;
+    unit: string;
+  };
   cuttingMaster: string | null;
   pala: number | null;
   acceptedPieces: number | null;
@@ -170,18 +207,34 @@ export interface LotDetail {
   targetQuantity: number | null;
   notes: string | null;
   article: { id: string; code: string; name: string };
-  fabric: { id: string; code: string; name: string; unit: string; balanceKg: string };
+  fabric: {
+    id: string;
+    code: string;
+    name: string;
+    unit: string;
+    balanceKg: string;
+  };
   createdBy: string | null;
   createdAt: string;
   batches: BatchListItem[];
   output: {
-    rows: { colour: string; size: string; planned: number; accepted: number; available: number }[];
+    rows: {
+      colour: string;
+      size: string;
+      planned: number;
+      accepted: number;
+      available: number;
+    }[];
     planned: number;
     accepted: number;
     available: number;
   };
   inCuttingKg: string;
-  costs: { entries: LotCostEntry[]; total: string; perPiece: string | null } | null;
+  costs: {
+    entries: LotCostEntry[];
+    total: string;
+    perPiece: string | null;
+  } | null;
   history: CuttingMovement[];
 }
 
@@ -215,7 +268,10 @@ export interface Batch {
     fabric: { id: string; code: string; name: string; unit: string };
   };
   cuttingMaster: { id: string; name: string; payMode: PayMode } | null;
-  marker: MarkerSettings & { calculatedPalaKg: string | null; activePalaKg: string | null };
+  marker: MarkerSettings & {
+    calculatedPalaKg: string | null;
+    activePalaKg: string | null;
+  };
   sizes: SizeRatio[];
   colours: { id: string; name: string; rolls: BatchRoll[] }[];
   posted: {

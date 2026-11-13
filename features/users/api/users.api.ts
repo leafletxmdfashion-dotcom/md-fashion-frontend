@@ -2,17 +2,24 @@ import { api, unwrap, type ApiSuccess } from "@/lib/api-client";
 
 import type { Permission } from "@/features/auth/types/auth.types";
 
-import type { IssuedInvitation, ManagedUser, PermissionGroup, Role } from "../types/user.types";
+import type { CreatedLogin, IssuedInvitation, ManagedUser, PermissionGroup, Role } from "../types/user.types";
 
 export const usersKeys = {
   all: ["users"] as const,
   list: () => [...usersKeys.all, "list"] as const,
+  page: (filters: Record<string, string | number | undefined>) => [...usersKeys.all, "page", filters] as const,
   roles: () => ["roles"] as const,
 };
 
 export const usersApi = {
+  /** Every login (for pickers). */
   async list(): Promise<ManagedUser[]> {
     return (await unwrap(api.get<ApiSuccess<{ users: ManagedUser[] }>>("/users"))).users;
+  },
+
+  /** One page of logins matching the table's search, filters and sort. */
+  page(filters: Record<string, string | number | undefined>, signal?: AbortSignal) {
+    return unwrap(api.get<ApiSuccess<{ users: ManagedUser[]; total: number }>>("/users", { params: filters, signal }));
   },
 
   async roles(): Promise<{ roles: Role[]; catalog: PermissionGroup[] }> {
@@ -31,15 +38,27 @@ export const usersApi = {
     await api.delete(`/roles/${key}`);
   },
 
-  async invite(input: { email: string; name: string; roleKey: string }): Promise<IssuedInvitation> {
-    return (await unwrap(api.post<ApiSuccess<{ invitation: IssuedInvitation }>>("/users/invitations", input)))
-      .invitation;
+  async invite(input: {
+    name: string;
+    email: string | null;
+    phone: string | null;
+    roleKey: string;
+    mode: "INVITE" | "PASSWORD";
+    password?: string;
+  }): Promise<CreatedLogin> {
+    return (await unwrap(api.post<ApiSuccess<{ login: CreatedLogin }>>("/users/invitations", input))).login;
+  },
+
+  /** Admin-set password; the user must change it at the next sign-in and is signed out everywhere. */
+  async setPassword(input: { userId: string; password: string }): Promise<void> {
+    await api.post(`/users/${input.userId}/password`, {
+      password: input.password,
+    });
   },
 
   async resendInvitation(userId: string): Promise<IssuedInvitation> {
-    return (
-      await unwrap(api.post<ApiSuccess<{ invitation: IssuedInvitation }>>(`/users/${userId}/invitation/resend`))
-    ).invitation;
+    return (await unwrap(api.post<ApiSuccess<{ invitation: IssuedInvitation }>>(`/users/${userId}/invitation/resend`)))
+      .invitation;
   },
 
   async revokeInvitation(userId: string): Promise<void> {

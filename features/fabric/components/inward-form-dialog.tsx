@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Field, fieldProps } from "@/components/form/field";
 import { FormAlert } from "@/components/form/form-alert";
 import { SuggestInput } from "@/components/form/suggest-input";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,10 +24,19 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Textarea } from "@/components/ui/textarea";
 import { applyServerError } from "@/lib/form-errors";
-import { cn } from "@/lib/utils";
 
 import { useCreateInward, useFabricOptions, useSuppliers } from "../hooks/use-fabric";
-import { amountOf, closeName, formatMoney, formatQty, hasPlaces, inwardNumber, todayISO, UNIT_LABEL, UNIT_NAME } from "../lib/format";
+import {
+  amountOf,
+  closeName,
+  formatMoney,
+  formatQty,
+  hasPlaces,
+  inwardNumber,
+  todayISO,
+  UNIT_LABEL,
+  UNIT_NAME,
+} from "../lib/format";
 import type { FabricUnit } from "../types/fabric.types";
 
 /** An empty number input reads as NaN; treat it as "not entered". */
@@ -203,30 +213,19 @@ export function InwardFormDialog({
                 control={form.control}
                 name="unit"
                 render={({ field }) => (
-                  <div
+                  <SegmentedControl
                     id="inward-unit"
-                    role="radiogroup"
                     aria-label="Unit"
-                    aria-invalid={errors.unit ? true : undefined}
-                    className="grid h-9 grid-cols-2 gap-1 rounded-lg bg-muted p-1"
-                  >
-                    {UNITS.map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        role="radio"
-                        aria-checked={field.value === value}
-                        disabled={existing !== undefined && field.value !== value}
-                        onClick={() => field.onChange(value)}
-                        className={cn(
-                          "rounded-md text-[13px] font-medium text-muted-foreground transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-40",
-                          field.value === value && "bg-card text-foreground shadow-sm",
-                        )}
-                      >
-                        {UNIT_NAME[value]}
-                      </button>
-                    ))}
-                  </div>
+                    fill
+                    invalid={Boolean(errors.unit)}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    options={UNITS.map((value) => ({
+                      value,
+                      label: UNIT_NAME[value],
+                      disabled: existing !== undefined && field.value !== value,
+                    }))}
+                  />
                 )}
               />
             </Field>
@@ -302,7 +301,9 @@ export function InwardFormDialog({
                   min={0}
                   step="any"
                   placeholder="e.g. 50"
-                  {...form.register("lowStockThreshold", { valueAsNumber: true })}
+                  {...form.register("lowStockThreshold", {
+                    valueAsNumber: true,
+                  })}
                 />
                 <InputGroupAddon align="inline-end">
                   <InputGroupText>{unitLabel}</InputGroupText>

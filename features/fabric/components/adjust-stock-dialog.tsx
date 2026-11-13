@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { Field, fieldProps } from "@/components/form/field";
 import { FormAlert } from "@/components/form/form-alert";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -118,24 +119,13 @@ export function AdjustStockDialog({
             control={form.control}
             name="direction"
             render={({ field }) => (
-              <div role="radiogroup" aria-label="Direction" className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
-                {DIRECTIONS.map(({ value, label, icon: Icon }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={field.value === value}
-                    onClick={() => field.onChange(value)}
-                    className={cn(
-                      "inline-flex h-8 items-center justify-center gap-1.5 rounded-md text-[13px] font-medium text-muted-foreground transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                      field.value === value && "bg-card text-foreground shadow-sm",
-                    )}
-                  >
-                    <Icon className="size-3.5" aria-hidden />
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                aria-label="Direction"
+                fill
+                value={field.value}
+                onValueChange={field.onChange}
+                options={DIRECTIONS}
+              />
             )}
           />
 

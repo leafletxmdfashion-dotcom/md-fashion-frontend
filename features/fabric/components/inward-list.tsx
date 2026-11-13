@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
 import { hasPermission } from "@/features/auth/lib/permissions";
-import { downloadServerCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 
 import { useFabricOptions, useInwards } from "../hooks/use-fabric";
@@ -32,7 +31,6 @@ const COLUMNS: DataColumn<Inward>[] = [
     sortable: true,
     filter: { type: "date" },
     skeleton: { width: "w-20" },
-    csv: (inward) => inward.inwardDate,
     cell: (inward) => <span className="whitespace-nowrap text-muted-foreground">{formatDate(inward.inwardDate)}</span>,
   },
   {
@@ -42,7 +40,6 @@ const COLUMNS: DataColumn<Inward>[] = [
     sortable: true,
     filter: { type: "number" },
     skeleton: { width: "w-14" },
-    csv: (inward) => inwardNumber(inward.number),
     cell: (inward) => <span className="font-mono text-xs">{inwardNumber(inward.number)}</span>,
   },
   {
@@ -52,7 +49,6 @@ const COLUMNS: DataColumn<Inward>[] = [
     hideable: false,
     filter: { type: "text", placeholder: "Name or code contains…" },
     skeleton: { sub: true, width: "w-28" },
-    csv: (inward) => `${inward.fabric.name} (${inward.fabric.code})`,
     cell: (inward) => (
       <>
         <p className="font-medium">{inward.fabric.name}</p>
@@ -71,7 +67,6 @@ const COLUMNS: DataColumn<Inward>[] = [
     sortable: true,
     filter: { type: "number" },
     skeleton: { width: "w-16" },
-    csv: (inward) => `${inward.quantity} ${UNIT_LABEL[inward.fabric.unit]}`,
     cell: (inward) => formatQty(inward.quantity, inward.fabric.unit),
   },
   {
@@ -82,7 +77,6 @@ const COLUMNS: DataColumn<Inward>[] = [
     sortable: true,
     filter: { type: "number", unit: "Rs" },
     skeleton: { width: "w-14" },
-    csv: (inward) => inward.rate,
     cell: (inward) => (
       <span className="whitespace-nowrap text-muted-foreground">
         {inward.rate != null ? `${formatMoney(inward.rate)}/${UNIT_LABEL[inward.fabric.unit]}` : "—"}
@@ -96,7 +90,6 @@ const COLUMNS: DataColumn<Inward>[] = [
     sortable: true,
     filter: { type: "number", unit: "Rs" },
     skeleton: { width: "w-24" },
-    csv: (inward) => inward.amount,
     cell: (inward) => (
       <span className={cn("font-medium whitespace-nowrap", inward.reversal && "text-muted-foreground line-through")}>
         {inward.amount != null ? formatMoney(inward.amount) : "—"}
@@ -110,7 +103,6 @@ const COLUMNS: DataColumn<Inward>[] = [
     sortable: true,
     filter: { type: "text", placeholder: "Supplier or invoice contains…" },
     skeleton: { sub: true, width: "w-28" },
-    csv: (inward) => [inward.supplier, inward.invoiceRef].filter(Boolean).join(" / "),
     cell: (inward) => (
       <>
         <p className="max-w-48 truncate">{inward.supplier ?? "—"}</p>
@@ -130,7 +122,6 @@ const COLUMNS: DataColumn<Inward>[] = [
       ],
     },
     skeleton: { width: "w-14" },
-    csv: (inward) => (inward.reversal ? "Reversed" : "Posted"),
     cell: (inward) =>
       inward.reversal ? (
         <StatusChip tone="danger">Reversed</StatusChip>
@@ -141,23 +132,6 @@ const COLUMNS: DataColumn<Inward>[] = [
 ];
 
 // "Export selected" writes the same columns as the server export, so one spreadsheet template fits both.
-const EXPORT: { header: string; value: (inward: Inward) => string | number | null; cost?: true }[] = [
-  { header: "No.", value: (inward) => inwardNumber(inward.number) },
-  { header: "Date", value: (inward) => inward.inwardDate },
-  { header: "Fabric code", value: (inward) => inward.fabric.code },
-  { header: "Fabric", value: (inward) => inward.fabric.name },
-  { header: "Unit", value: (inward) => inward.fabric.unit },
-  { header: "Quantity", value: (inward) => inward.quantity },
-  { header: "Rate", value: (inward) => inward.rate, cost: true },
-  { header: "Amount", value: (inward) => inward.amount, cost: true },
-  { header: "Supplier", value: (inward) => inward.supplier },
-  { header: "Invoice", value: (inward) => inward.invoiceRef },
-  { header: "Status", value: (inward) => (inward.reversal ? "Reversed" : "Posted") },
-  { header: "Notes", value: (inward) => inward.notes },
-];
-
-const EXPORT_WITHOUT_COST = EXPORT.filter((column) => !column.cost);
-
 // Rate and amount come back null without costing.view, so those columns (and their filters) are dropped.
 const COLUMNS_WITHOUT_COST = COLUMNS.filter((column) => column.id !== "rate" && column.id !== "amount");
 
@@ -229,7 +203,6 @@ export function InwardList() {
         <DataTable
           id="fabric-purchases"
           columns={canSeeCost ? COLUMNS : COLUMNS_WITHOUT_COST}
-          exportColumns={canSeeCost ? EXPORT : EXPORT_WITHOUT_COST}
           rows={data?.inwards}
           rowId={(inward) => inward.id}
           total={data?.total}
@@ -270,8 +243,7 @@ export function InwardList() {
                 ]
               : []
           }
-          onExport={() => downloadServerCsv("/fabrics/inwards/export", table.params)}
-          exportName="fabric-purchases"
+          exportPath="/fabrics/inwards/export"
           toolbarEnd={
             <>
               {canAdjust ? (
@@ -291,7 +263,6 @@ export function InwardList() {
               ) : null}
             </>
           }
-          bulkActions={() => null}
           onRowClick={setSelected}
           rowActions={(inward) => (
             <>

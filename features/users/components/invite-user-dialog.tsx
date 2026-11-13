@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, Copy, Loader2, Plus } from "lucide-react";
 import { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import { z } from "zod";
 
 import { Field, fieldProps } from "@/components/form/field";
@@ -21,17 +21,23 @@ import {
 import { Input } from "@/components/ui/input";
 import { applyServerError } from "@/lib/form-errors";
 
-import { useInviteUser } from "../hooks/use-users";
-import type { IssuedInvitation, Role } from "../types/user.types";
-import { RoleSelect } from "./role-select";
+import { useInviteUser, useRoleCatalog } from "../hooks/use-users";
+import type { CreatedLogin, IssuedInvitation } from "../types/user.types";
+import {
+  emptyLogin,
+  LoginFields,
+  LoginHandover,
+  loginPayload,
+  loginValuesSchema,
+  type LoginValues,
+} from "./login-fields";
 
-const inviteSchema = z.object({
-  email: z.string().trim().min(1, "Email is required.").email("Enter a valid email address."),
+const schema = z.object({
   name: z.string().trim().min(1, "Name is required.").max(100, "Name is too long."),
-  roleKey: z.string().min(1, "Choose a role."),
+  login: loginValuesSchema,
 });
 
-type InviteValues = z.infer<typeof inviteSchema>;
+type Values = z.infer<typeof schema>;
 
 export function InvitationLink({ invitation }: { invitation: IssuedInvitation }) {
   const [copied, setCopied] = useState(false);
@@ -58,12 +64,18 @@ export function InvitationLink({ invitation }: { invitation: IssuedInvitation })
   );
 }
 
-export function InviteUserDialog({ roles }: { roles: Role[] }) {
+/** A login for someone who is not on the payroll (office, owner's family). Staff and karigars get theirs from their record. */
+export function InviteUserDialog() {
   const [open, setOpen] = useState(false);
+  const [created, setCreated] = useState<{
+    login: CreatedLogin;
+    values: LoginValues;
+  } | null>(null);
   const invite = useInviteUser();
-  const form = useForm<InviteValues>({
-    resolver: zodResolver(inviteSchema),
-    defaultValues: { email: "", name: "", roleKey: "" },
+  const roles = useRoleCatalog(open);
+  const form = useForm<Values>({
+    resolver: zodResolver(schema),
+    defaultValues: { name: "", login: emptyLogin() },
   });
   const { errors, isSubmitting } = form.formState;
 
@@ -71,13 +83,17 @@ export function InviteUserDialog({ roles }: { roles: Role[] }) {
     setOpen(next);
     if (!next) {
       form.reset();
-      invite.reset();
+      setCreated(null);
     }
   };
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await invite.mutateAsync(values);
+      const login = await invite.mutateAsync({
+        name: values.name,
+        ...loginPayload(values.login),
+      });
+      setCreated({ login, values: values.login });
     } catch (error) {
       applyServerError(error, form);
     }
@@ -87,33 +103,27 @@ export function InviteUserDialog({ roles }: { roles: Role[] }) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger render={<Button />}>
         <Plus aria-hidden />
-        Invite member
+        Add login
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Invite member</DialogTitle>
-          <DialogDescription>They will set their own password from the invitation link.</DialogDescription>
+          <DialogTitle>{created ? "Login created" : "Add login"}</DialogTitle>
+          <DialogDescription>
+            {created
+              ? "Share these now. They are not shown again."
+              : "For people who are not staff or karigars. Staff and karigars get their login from Staff & karigars."}
+          </DialogDescription>
         </DialogHeader>
-        {invite.data ? (
+        {created ? (
           <>
-            <InvitationLink invitation={invite.data} />
+            <LoginHandover login={created.login} values={created.values} />
             <DialogFooter>
-              <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-                Done
-              </Button>
+              <Button onClick={() => onOpenChange(false)}>Done</Button>
             </DialogFooter>
           </>
         ) : (
           <form onSubmit={onSubmit} noValidate className="grid gap-4">
             {errors.root?.server ? <FormAlert>{errors.root.server.message}</FormAlert> : null}
-            <Field id="invite-email" label="Email" error={errors.email?.message}>
-              <Input
-                {...fieldProps("invite-email", errors.email?.message)}
-                type="email"
-                autoComplete="off"
-                {...form.register("email")}
-              />
-            </Field>
             <Field id="invite-name" label="Name" error={errors.name?.message}>
               <Input
                 {...fieldProps("invite-name", errors.name?.message)}
@@ -121,25 +131,21 @@ export function InviteUserDialog({ roles }: { roles: Role[] }) {
                 {...form.register("name")}
               />
             </Field>
-            <Field id="invite-role" label="Role" error={errors.roleKey?.message}>
-              <Controller
-                control={form.control}
-                name="roleKey"
-                render={({ field }) => (
-                  <RoleSelect
-                    id="invite-role"
-                    roles={roles}
-                    value={field.value}
-                    onChange={field.onChange}
-                    invalid={Boolean(errors.roleKey)}
-                  />
-                )}
+            {roles.data ? (
+              <LoginFields
+                // SAFETY: Values has `login: LoginValues`; LoginFields only reads and writes login.*.
+                form={form as unknown as UseFormReturn<{ login: LoginValues }>}
+                roles={roles.data.roles}
+                catalog={roles.data.catalog}
+                idPrefix="invite"
               />
-            </Field>
+            ) : (
+              <p className="text-[13px] text-muted-foreground">Loading roles…</p>
+            )}
             <DialogFooter>
-              <Button type="submit" size="sm" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="animate-spin" aria-hidden /> : null}
-                Send invitation
+                Create login
               </Button>
             </DialogFooter>
           </form>

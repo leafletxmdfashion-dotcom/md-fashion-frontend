@@ -1,13 +1,18 @@
 import type * as React from "react";
 
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 /** Accessible wiring for an input inside <Field>: aria-invalid + aria-describedby. */
 export function fieldProps(id: string, error?: string, description?: string) {
   const describedBy = [error ? `${id}-error` : null, description ? `${id}-description` : null]
     .filter(Boolean)
     .join(" ");
-  return { id, "aria-invalid": error ? true : undefined, "aria-describedby": describedBy || undefined };
+  return {
+    id,
+    "aria-invalid": error ? true : undefined,
+    "aria-describedby": describedBy || undefined,
+  };
 }
 
 export function Field({
@@ -17,6 +22,7 @@ export function Field({
   description,
   action,
   children,
+  className,
 }: {
   id: string;
   label: string;
@@ -24,9 +30,10 @@ export function Field({
   description?: string;
   action?: React.ReactNode;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="grid content-start gap-1.5">
+    <div className={cn("grid content-start gap-1.5", className)}>
       <div className="flex min-h-4 items-center justify-between gap-2">
         <Label htmlFor={id} className="text-[13px] font-medium text-foreground/90">
           {label}

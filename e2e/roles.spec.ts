@@ -24,12 +24,12 @@ test("an owner creates a custom role, invites staff with it, and they see only w
   const fabric = editor.getByRole("group", { name: "Fabric" });
   await expect(fabric.getByRole("checkbox", { name: /^View Purchases/ })).toBeChecked();
   // Store keepers handle fabric only: no cutting, stitching or workers.
-  for (const module of ["Cutting", "Stitching", "Workers"]) {
+  for (const group of ["Cutting", "Stitching", "Staff & Karigar"]) {
     await editor
-      .getByRole("group", { name: module })
+      .getByRole("group", { name: group })
       .getByRole("checkbox", { name: /^View / })
       .click();
-    await expect(editor.getByRole("checkbox", { name: `All ${module} permissions` })).not.toBeChecked();
+    await expect(editor.getByRole("checkbox", { name: `All ${group} permissions` })).not.toBeChecked();
   }
   await fabric.getByRole("checkbox", { name: /^Add purchases/ }).click();
   await editor.getByRole("button", { name: "Save changes" }).click();
@@ -44,13 +44,13 @@ test("an owner creates a custom role, invites staff with it, and they see only w
 
   // Invite a store keeper.
   await page.goto("/users");
-  await page.getByRole("button", { name: "Invite member" }).click();
+  await page.getByRole("button", { name: "Add login" }).click();
   const invite = page.getByRole("dialog");
-  await invite.getByLabel("Email").fill("fabric.clerk@garment.test");
+  await invite.getByLabel("Email", { exact: true }).fill("fabric.clerk@garment.test");
   await invite.getByLabel("Name").fill("Sam Store");
   await invite.getByLabel("Role").click();
   await page.getByRole("option", { name: "Fabric Clerk" }).click();
-  await invite.getByRole("button", { name: "Send invitation" }).click();
+  await invite.getByRole("button", { name: "Create login" }).click();
   const inviteUrl = await invite.getByLabel("Invitation link", { exact: true }).inputValue();
 
   const keeperContext = await browser.newContext();

@@ -20,13 +20,20 @@ export function ChangePasswordForm() {
   const changePassword = useChangePassword();
   const form = useForm<ChangePasswordValues>({
     resolver: zodResolver(changePasswordSchema),
-    defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
   });
   const { errors, isSubmitting } = form.formState;
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await changePassword.mutateAsync({ currentPassword: values.currentPassword, newPassword: values.newPassword });
+      await changePassword.mutateAsync({
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      });
       form.reset();
       toast.success("Password changed. Your other devices were signed out.");
     } catch (error) {
@@ -37,7 +44,14 @@ export function ChangePasswordForm() {
   return (
     <form onSubmit={onSubmit} noValidate className="grid max-w-sm gap-4">
       {/* Lets password managers associate the new password with this account. */}
-      <input type="text" name="username" autoComplete="username" value={user?.email ?? ""} readOnly hidden />
+      <input
+        type="text"
+        name="username"
+        autoComplete="username"
+        value={user?.email ?? user?.phone ?? ""}
+        readOnly
+        hidden
+      />
       {errors.root?.server ? <FormAlert>{errors.root.server.message}</FormAlert> : null}
       <Field id="currentPassword" label="Current password" error={errors.currentPassword?.message}>
         <PasswordInput

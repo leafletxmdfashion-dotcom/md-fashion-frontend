@@ -29,7 +29,14 @@ function userWith(session: Partial<CurrentUser["session"]> = {}): CurrentUser {
     status: "ACTIVE",
     role: { key: "OWNER", name: "Owner" },
     permissions: ["dashboard.view"],
-    session: { expiresAt: new Date(Date.now() + HOUR).toISOString(), idleTimeoutMinutes: 120, ...session },
+    phone: null,
+    mustChangePassword: false,
+    karigarId: null,
+    session: {
+      expiresAt: new Date(Date.now() + HOUR).toISOString(),
+      idleTimeoutMinutes: 120,
+      ...session,
+    },
   };
 }
 
@@ -119,7 +126,9 @@ describe("AuthGuard", () => {
   });
 
   it("signs out at the session's absolute expiry", async () => {
-    vi.mocked(authApi.getCurrentUser).mockResolvedValue(userWith({ expiresAt: new Date(Date.now() - 1).toISOString() }));
+    vi.mocked(authApi.getCurrentUser).mockResolvedValue(
+      userWith({ expiresAt: new Date(Date.now() - 1).toISOString() }),
+    );
     renderGuard();
     await screen.findByText("Quarterly margins");
     tabBecomesVisible();

@@ -1,17 +1,35 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { authKeys } from "@/features/auth/api/auth.keys";
 
 import { usersApi, usersKeys } from "../api/users.api";
 
 export function useUsers(enabled = true) {
-  return useQuery({ queryKey: usersKeys.list(), queryFn: usersApi.list, enabled });
+  return useQuery({
+    queryKey: usersKeys.list(),
+    queryFn: usersApi.list,
+    enabled,
+  });
+}
+
+export function useUsersPage(filters: Record<string, string | number | undefined>, enabled = true) {
+  return useQuery({
+    queryKey: usersKeys.page(filters),
+    queryFn: ({ signal }) => usersApi.page(filters, signal),
+    placeholderData: keepPreviousData,
+    enabled,
+  });
 }
 
 export function useRoleCatalog(enabled = true) {
-  return useQuery({ queryKey: usersKeys.roles(), queryFn: usersApi.roles, staleTime: 5 * 60_000, enabled });
+  return useQuery({
+    queryKey: usersKeys.roles(),
+    queryFn: usersApi.roles,
+    staleTime: 5 * 60_000,
+    enabled,
+  });
 }
 
 export function useRoles(enabled = true) {
@@ -33,7 +51,7 @@ function useRoleMutation<TInput, TResult>(mutationFn: (input: TInput) => Promise
     onSettled: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: usersKeys.roles() }),
-        queryClient.invalidateQueries({ queryKey: usersKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: usersKeys.all }),
         queryClient.invalidateQueries({ queryKey: authKeys.me() }),
       ]),
   });
@@ -48,11 +66,12 @@ function useUsersMutation<TInput, TResult>(mutationFn: (input: TInput) => Promis
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn,
-    onSettled: () => queryClient.invalidateQueries({ queryKey: usersKeys.list() }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: usersKeys.all }),
   });
 }
 
 export const useInviteUser = () => useUsersMutation(usersApi.invite);
+export const useSetUserPassword = () => useUsersMutation(usersApi.setPassword);
 export const useResendInvitation = () => useUsersMutation(usersApi.resendInvitation);
 export const useRevokeInvitation = () => useUsersMutation(usersApi.revokeInvitation);
 export const useChangeRole = () => useUsersMutation(usersApi.changeRole);

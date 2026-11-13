@@ -7,15 +7,20 @@ export const authApi = {
   async getCurrentUser(): Promise<CurrentUser | null> {
     try {
       // Short timeout: the whole app waits on this, and a failure signs the user out.
-      return (await unwrap(api.get<{ success: true; data: { user: CurrentUser } }>("/auth/me", { timeout: 6_000 })))
-        .user;
+      return (
+        await unwrap(
+          api.get<{ success: true; data: { user: CurrentUser } }>("/auth/me", {
+            timeout: 6_000,
+          }),
+        )
+      ).user;
     } catch (error) {
       if (error instanceof ApiError && error.code === "AUTH_UNAUTHENTICATED") return null;
       throw error;
     }
   },
 
-  async login(input: { email: string; password: string }): Promise<CurrentUser> {
+  async login(input: { identifier: string; password: string }): Promise<CurrentUser> {
     return (await unwrap(api.post<{ success: true; data: { user: CurrentUser } }>("/auth/login", input))).user;
   },
 
@@ -32,9 +37,8 @@ export const authApi = {
   },
 
   async changePassword(input: { currentPassword: string; newPassword: string }): Promise<CurrentUser> {
-    return (
-      await unwrap(api.post<{ success: true; data: { user: CurrentUser } }>("/auth/change-password", input))
-    ).user;
+    return (await unwrap(api.post<{ success: true; data: { user: CurrentUser } }>("/auth/change-password", input)))
+      .user;
   },
 
   async forgotPassword(input: { email: string }): Promise<string> {
@@ -59,8 +63,7 @@ export const authApi = {
   },
 
   async listSessions(): Promise<SessionSummary[]> {
-    return (await unwrap(api.get<{ success: true; data: { sessions: SessionSummary[] } }>("/auth/sessions")))
-      .sessions;
+    return (await unwrap(api.get<{ success: true; data: { sessions: SessionSummary[] } }>("/auth/sessions"))).sessions;
   },
 
   async revokeSession(sessionId: string): Promise<{ current: boolean }> {

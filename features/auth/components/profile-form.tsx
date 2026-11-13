@@ -17,7 +17,10 @@ import type { CurrentUser } from "../types/auth.types";
 
 export function ProfileForm({ user }: { user: CurrentUser }) {
   const updateProfile = useUpdateProfile();
-  const form = useForm<ProfileValues>({ resolver: zodResolver(profileSchema), values: { name: user.name } });
+  const form = useForm<ProfileValues>({
+    resolver: zodResolver(profileSchema),
+    values: { name: user.name },
+  });
   const { errors, isSubmitting, isDirty } = form.formState;
 
   const onSubmit = form.handleSubmit(async (values) => {
@@ -35,9 +38,16 @@ export function ProfileForm({ user }: { user: CurrentUser }) {
       <Field id="name" label="Full name" error={errors.name?.message}>
         <Input {...fieldProps("name", errors.name?.message)} autoComplete="name" {...form.register("name")} />
       </Field>
-      <Field id="account-email" label="Email" description="Contact an administrator to change your email.">
-        <Input {...fieldProps("account-email", undefined, "hint")} value={user.email} readOnly disabled />
-      </Field>
+      {user.email ? (
+        <Field id="account-email" label="Email" description="Contact an administrator to change your email.">
+          <Input {...fieldProps("account-email", undefined, "hint")} value={user.email} readOnly disabled />
+        </Field>
+      ) : null}
+      {user.phone ? (
+        <Field id="account-phone" label="Phone" description="Contact an administrator to change your phone.">
+          <Input {...fieldProps("account-phone", undefined, "hint")} value={user.phone} readOnly disabled />
+        </Field>
+      ) : null}
       <div>
         <Button type="submit" size="sm" disabled={isSubmitting || !isDirty}>
           {isSubmitting ? <Loader2 className="animate-spin" aria-hidden /> : null}

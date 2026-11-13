@@ -1,7 +1,8 @@
 import { todayISO } from "@/features/fabric/lib/format";
 
 import type { Batch, CuttingDraftInput, MarkerDefaults, RollStatus, WeightSource } from "../types/production.types";
-import type { BatchResult, ColourInput, Issue, MarkerInput, RollResult } from "./cutting-calc";
+import type { BatchResult, ColourInput, Issue, MarkerInput, QtyUnit, RollResult } from "./cutting-calc";
+import { inchesToMetres, metresToInches } from "./format";
 
 // The production form keeps every input as text (what the operator typed), so the
 // calculator and the API both read exactly what is on screen. Ids are named
@@ -33,11 +34,19 @@ export interface SizeValues {
   pieceWeightG: string;
 }
 
+export type LengthUnit = "M" | "IN";
+
 export interface MarkerValues {
+  /** As typed, in widthUnit; sent to the API in metres. */
   widthM: string;
+  /** As typed, in lengthUnit; sent to the API in metres. */
   lengthM: string;
+  widthUnit: LengthUnit;
+  lengthUnit: LengthUnit;
   gsm: string;
   measuredPalaKg: string;
+  /** The Pala in the other unit (m for kg fabric, kg for metre fabric); recorded only. */
+  palaAltValue: string;
   weightSource: WeightSource;
   repetitionsPerLayer: string;
 }
@@ -77,12 +86,54 @@ const DEFAULT_SIZES: SizeValues[] = ["S", "M", "L", "XL"].map((label) => ({
   pieceWeightG: "",
 }));
 
+/** Stored metres → the text shown in the unit they were typed in. */
+const shownLength = (metres: string | null | undefined, unit: LengthUnit) =>
+  metres === null || metres === undefined ? "" : unit === "IN" ? (metresToInches(metres) ?? metres) : metres;
+
+/** Typed text → metres for the API; text that is not a number goes as typed so the API names the problem. */
+export function lengthInMetres(typed: string, unit: LengthUnit): string | null {
+  const value = typed.trim();
+
+  if (value === "") return null;
+
+  // Inches that do not convert (letters, more than 2 decimals) go as text the API rejects,
+  // never as a number of metres; the form shows why first (inchIssues).
+  return unit === "IN" ? (inchesToMetres(value) ?? `${value} in`) : value;
+}
+
+/** Panaha or layer length typed in inches that cannot be read, as form issues. */
+export function inchIssues(values: CuttingFormValues): Issue[] {
+  const fields = [
+    ["widthM", "widthUnit", "Panaha"],
+    ["lengthM", "lengthUnit", "Layer length"],
+  ] as const;
+
+  return fields.flatMap(([field, unitField, label]) => {
+    const typed = values.marker[field].trim();
+
+    return values.marker[unitField] === "IN" && typed !== "" && inchesToMetres(typed) === null
+      ? [
+          {
+            path: `marker.${field}`,
+            message: `${label}: enter inches with up to 2 decimals, e.g. 58.5.`,
+          },
+        ]
+      : [];
+  });
+}
+
 export function markerValuesOf(marker: Omit<MarkerDefaults, "sizes"> | null): MarkerValues {
+  const widthUnit = marker?.widthUnit ?? "M";
+  const lengthUnit = marker?.lengthUnit ?? "M";
+
   return {
-    widthM: text(marker?.widthM),
-    lengthM: text(marker?.lengthM),
+    widthM: shownLength(marker?.widthM, widthUnit),
+    lengthM: shownLength(marker?.lengthM, lengthUnit),
+    widthUnit,
+    lengthUnit,
     gsm: text(marker?.gsm),
     measuredPalaKg: text(marker?.measuredPalaKg),
+    palaAltValue: text(marker?.palaAltValue),
     // The Calculated (GSM) option is hidden; every new or reopened marker is weighed. The API still
     // accepts CALCULATED, so older finalized cutting keeps showing its calculated weight.
     weightSource: "MEASURED",
@@ -230,14 +281,15 @@ export interface CalcInputs {
   toFormPath: (path: string) => string;
 }
 
-export function calcInputsOf(values: CuttingFormValues): CalcInputs {
+export function calcInputsOf(values: CuttingFormValues, unit: QtyUnit = "KG"): CalcInputs {
   const calculated = values.marker.weightSource === "CALCULATED";
   const groups = groupRows(values.rolls);
 
   return {
     marker: {
-      widthM: decimalOrNull(values.marker.widthM),
-      lengthM: decimalOrNull(values.marker.lengthM),
+      unit,
+      widthM: lengthInMetres(values.marker.widthM, values.marker.widthUnit),
+      lengthM: lengthInMetres(values.marker.lengthM, values.marker.lengthUnit),
       gsm: calculated ? decimalOrNull(values.marker.gsm) : null,
       measuredPalaKg: decimalOrNull(values.marker.measuredPalaKg),
       weightSource: values.marker.weightSource,
@@ -281,7 +333,10 @@ export function rowResultsOf(inputs: CalcInputs, calc: BatchResult): (RollResult
 
 /** Calculator issues and warnings with their paths pointing at form rows. */
 export function onRows(issues: Issue[], inputs: CalcInputs): Issue[] {
-  return issues.map((issue) => ({ ...issue, path: inputs.toFormPath(issue.path) }));
+  return issues.map((issue) => ({
+    ...issue,
+    path: inputs.toFormPath(issue.path),
+  }));
 }
 
 const integerOr = (value: string, fallback: number) => {
@@ -321,11 +376,14 @@ export function draftPayloadOf(values: CuttingFormValues): DraftPayload {
       cuttingDate: values.cuttingDate,
       notes: values.notes.trim() || null,
       marker: {
-        widthM: decimalOrNull(values.marker.widthM),
-        lengthM: decimalOrNull(values.marker.lengthM),
+        widthM: lengthInMetres(values.marker.widthM, values.marker.widthUnit),
+        lengthM: lengthInMetres(values.marker.lengthM, values.marker.lengthUnit),
+        widthUnit: values.marker.widthUnit,
+        lengthUnit: values.marker.lengthUnit,
         // GSM only matters when the Pala weight is calculated; a weighed Pala keeps none.
         gsm: calculated ? decimalOrNull(values.marker.gsm) : null,
         measuredPalaKg: decimalOrNull(values.marker.measuredPalaKg),
+        palaAltValue: decimalOrNull(values.marker.palaAltValue),
         weightSource: values.marker.weightSource,
         repetitionsPerLayer: integerOr(values.marker.repetitionsPerLayer, 1),
       },
@@ -354,7 +412,10 @@ export function draftPayloadOf(values: CuttingFormValues): DraftPayload {
     },
     // A colour-level error points at the colour's first row, even one not yet weighed.
     toFormPath: rowPathMapper(
-      groups.map((group) => ({ ...group, rows: group.rows.length ? group.rows : group.named })),
+      groups.map((group) => ({
+        ...group,
+        rows: group.rows.length ? group.rows : group.named,
+      })),
     ),
   };
 }
@@ -362,9 +423,21 @@ export function draftPayloadOf(values: CuttingFormValues): DraftPayload {
 export type StepId = "details" | "marker" | "thaan";
 
 export const STEPS: { id: StepId; title: string; description: string }[] = [
-  { id: "details", title: "Lot & item", description: "Lot number, what is cut, from which fabric and by whom" },
-  { id: "marker", title: "Marker & sizes", description: "Weight of one Pala and the size ratio" },
-  { id: "thaan", title: "Colours & Thaan", description: "Each Thaan's colour and the weight issued" },
+  {
+    id: "details",
+    title: "Lot & item",
+    description: "Lot number, what is cut, from which fabric and by whom",
+  },
+  {
+    id: "marker",
+    title: "Marker & sizes",
+    description: "Weight of one Pala and the size ratio",
+  },
+  {
+    id: "thaan",
+    title: "Colours & Thaan",
+    description: "Each Thaan's colour and the weight issued",
+  },
 ];
 
 /** Which form section owns a field path. */

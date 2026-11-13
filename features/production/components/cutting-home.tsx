@@ -13,7 +13,7 @@ import { hasPermission } from "@/features/auth/lib/permissions";
 import { formatDate } from "@/features/fabric/lib/format";
 
 import { useBatches, useLots } from "../hooks/use-production";
-import { BATCH_STATUS, cutNumber, kgText } from "../lib/format";
+import { BATCH_STATUS, bothUnits, cutNumber, kgText } from "../lib/format";
 import type { BatchListItem, BatchStatus } from "../types/production.types";
 import { ButtonLink } from "./form-parts";
 import { ProductionPage } from "./production-pages";
@@ -32,7 +32,6 @@ const BATCH_COLUMNS: DataColumn<BatchListItem>[] = [
     sortable: true,
     filter: { type: "date" },
     skeleton: { width: "w-20" },
-    csv: (batch) => batch.cuttingDate,
     cell: (batch) => <span className="whitespace-nowrap text-muted-foreground">{formatDate(batch.cuttingDate)}</span>,
   },
   {
@@ -42,7 +41,6 @@ const BATCH_COLUMNS: DataColumn<BatchListItem>[] = [
     hideable: false,
     filter: { type: "number" },
     skeleton: { sub: true, width: "w-20" },
-    csv: (batch) => cutNumber(batch.number),
     cell: (batch) => (
       <>
         <Link
@@ -62,7 +60,6 @@ const BATCH_COLUMNS: DataColumn<BatchListItem>[] = [
     sortable: true,
     filter: { type: "text", placeholder: "Lot or item contains…" },
     skeleton: { sub: true, width: "w-28" },
-    csv: (batch) => `${batch.lot.lotNumber} ${batch.lot.articleName}`,
     cell: (batch) => (
       <>
         <p className="font-mono text-[13px] font-medium">{batch.lot.lotNumber}</p>
@@ -79,7 +76,6 @@ const BATCH_COLUMNS: DataColumn<BatchListItem>[] = [
     sortable: true,
     filter: { type: "text", placeholder: "Name contains…" },
     skeleton: { width: "w-24" },
-    csv: (batch) => batch.cuttingMaster,
     cell: (batch) => <span className="text-muted-foreground">{batch.cuttingMaster ?? "—"}</span>,
   },
   {
@@ -90,8 +86,7 @@ const BATCH_COLUMNS: DataColumn<BatchListItem>[] = [
     sortable: true,
     filter: { type: "number", unit: "kg" },
     skeleton: { width: "w-16" },
-    csv: (batch) => batch.issuedKg,
-    cell: (batch) => <span className="tabular-nums">{kgText(batch.issuedKg)}</span>,
+    cell: (batch) => <span className="tabular-nums">{kgText(batch.issuedKg, batch.lot.unit)}</span>,
   },
   {
     id: "pala",
@@ -101,7 +96,6 @@ const BATCH_COLUMNS: DataColumn<BatchListItem>[] = [
     sortable: true,
     filter: { type: "number" },
     skeleton: { width: "w-10" },
-    csv: (batch) => batch.pala,
     cell: (batch) => <span className="tabular-nums">{batch.pala ?? "—"}</span>,
   },
   {
@@ -111,7 +105,6 @@ const BATCH_COLUMNS: DataColumn<BatchListItem>[] = [
     sortable: true,
     filter: { type: "number" },
     skeleton: { width: "w-10" },
-    csv: (batch) => batch.acceptedPieces,
     cell: (batch) => <span className="font-medium tabular-nums">{batch.acceptedPieces ?? "—"}</span>,
   },
   {
@@ -122,8 +115,9 @@ const BATCH_COLUMNS: DataColumn<BatchListItem>[] = [
     sortable: true,
     filter: { type: "number", unit: "kg" },
     skeleton: { width: "w-16" },
-    csv: (batch) => batch.wastageKg,
-    cell: (batch) => <span className="tabular-nums text-muted-foreground">{kgText(batch.wastageKg)}</span>,
+    cell: (batch) => (
+      <span className="tabular-nums text-muted-foreground">{kgText(batch.wastageKg, batch.lot.unit)}</span>
+    ),
   },
   {
     id: "status",
@@ -131,7 +125,6 @@ const BATCH_COLUMNS: DataColumn<BatchListItem>[] = [
     sortable: true,
     filter: { type: "enum", options: BATCH_STATUS_OPTIONS },
     skeleton: { width: "w-20" },
-    csv: (batch) => BATCH_STATUS[batch.status].label,
     cell: (batch) => <StatusChip tone={BATCH_STATUS[batch.status].tone}>{BATCH_STATUS[batch.status].label}</StatusChip>,
   },
 ];
@@ -163,7 +156,7 @@ function Stats() {
     );
   }
 
-  const holding = summary.inCuttingKg.replace(/[0.]/g, "") !== "";
+  const holding = `${summary.inCuttingKg}${summary.inCuttingM}`.replace(/[0.]/g, "") !== "";
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -183,13 +176,13 @@ function Stats() {
       <StatCard
         label="Fabric used this month"
         icon={Layers}
-        value={kgText(summary.consumedKgThisMonth)}
-        context={`${kgText(summary.wastageKgThisMonth)} wastage`}
+        value={bothUnits(summary.consumedKgThisMonth, summary.consumedMThisMonth)}
+        context={`${bothUnits(summary.wastageKgThisMonth, summary.wastageMThisMonth)} wastage`}
       />
       <StatCard
         label="Fabric in cutting"
         icon={Timer}
-        value={kgText(summary.inCuttingKg)}
+        value={bothUnits(summary.inCuttingKg, summary.inCuttingM)}
         context="Issued, not yet finalized"
         tone={holding ? "warning" : "default"}
         href="/cutting?status=ISSUED"
@@ -215,6 +208,7 @@ export function CuttingHome() {
         <Stats />
         <DataTable
           id="cutting-batches"
+          exportPath="/cutting-batches/export"
           columns={BATCH_COLUMNS}
           rows={data?.batches}
           rowId={(batch) => batch.id}

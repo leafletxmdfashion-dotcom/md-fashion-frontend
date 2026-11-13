@@ -11,27 +11,45 @@ import { FabricCombobox } from "@/features/fabric/components/fabric-combobox";
 import { todayISO } from "@/features/fabric/lib/format";
 import type { FabricOption } from "@/features/fabric/types/fabric.types";
 
+import { useCurrentUser } from "@/features/auth/hooks/use-current-user";
+import { hasPermission } from "@/features/auth/lib/permissions";
+
 import { useKarigarOptions } from "../hooks/use-production";
 import type { BatchResult } from "../lib/cutting-calc";
-import { CATEGORY_LABEL, karigarCode, microKgText, PAY_MODE_LABEL } from "../lib/format";
+import { CATEGORY_LABEL, karigarCode, microKgText, PAY_MODE_LABEL, type QtyUnit } from "../lib/format";
 import type { CuttingFormValues } from "../lib/form-model";
 import type { Article, LotListItem } from "../types/production.types";
+import { ItemPicker } from "./item-tools";
 
 export interface StepProps {
   form: UseFormReturn<CuttingFormValues>;
   calc: BatchResult;
   errorAt: (path: string) => string | undefined;
+  /** The chosen fabric's unit: Pala, Thaan and wastage are in kg, or metres for fabric bought by the metre. */
+  unit: QtyUnit;
 }
 
-function MasterSelect({ value, onChange, invalid }: { value: string; onChange: (id: string) => void; invalid: boolean }) {
+function MasterSelect({
+  value,
+  onChange,
+  invalid,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  invalid: boolean;
+}) {
   // Any active karigar can cut; cutting masters are listed first.
   const masters = useKarigarOptions();
 
   const sorted = [...(masters.data ?? [])].sort(
-    (a, b) => Number(b.category === "CUTTING_MASTER") - Number(a.category === "CUTTING_MASTER") || a.name.localeCompare(b.name),
+    (a, b) =>
+      Number(b.category === "CUTTING_MASTER") - Number(a.category === "CUTTING_MASTER") || a.name.localeCompare(b.name),
   );
 
-  const items = sorted.map((master) => ({ value: master.id, label: master.name }));
+  const items = sorted.map((master) => ({
+    value: master.id,
+    label: master.name,
+  }));
 
   return (
     <>
@@ -41,11 +59,16 @@ function MasterSelect({ value, onChange, invalid }: { value: string; onChange: (
         </SelectTrigger>
         <SelectContent>
           {sorted.map((master) => (
-            <SelectItem key={master.id} value={master.id}>
+            <SelectItem
+              key={master.id}
+              value={master.id}
+              description={
+                <>
+                  {karigarCode(master.number)} · {CATEGORY_LABEL[master.category]} · {PAY_MODE_LABEL[master.payMode]}
+                </>
+              }
+            >
               {master.name}
-              <span className="ml-1.5 text-xs text-muted-foreground">
-                {karigarCode(master.number)} · {CATEGORY_LABEL[master.category]} · {PAY_MODE_LABEL[master.payMode]}
-              </span>
             </SelectItem>
           ))}
         </SelectContent>
@@ -54,7 +77,7 @@ function MasterSelect({ value, onChange, invalid }: { value: string; onChange: (
         <p className="text-xs text-muted-foreground">
           No karigars yet.{" "}
           <Link href="/karigar" className="text-link hover:underline">
-            Add one in Karigar Master
+            Add one in Staff &amp; Karigar
           </Link>
           .
         </p>
@@ -70,20 +93,21 @@ export function StepDetails({
   locked,
   openLots,
   matchedLot,
-  articles,
   matchedArticle,
   fabrics,
   storeKg,
+  unit,
 }: StepProps & {
   /** True once the cutting is saved: its lot, item and fabric are fixed. */
   locked: boolean;
   openLots: LotListItem[];
   matchedLot: LotListItem | undefined;
-  articles: Article[];
   matchedArticle: Article | undefined;
   fabrics: FabricOption[];
   storeKg: bigint | null;
 }) {
+  const { data: user } = useCurrentUser();
+  const canManageItems = hasPermission(user, "production.manage");
   const lotNumber = form.watch("lotNumber");
   const articleName = form.watch("articleName");
   const fixed = locked || matchedLot !== undefined;
@@ -97,13 +121,14 @@ export function StepDetails({
         : "Type the lot number, or pick an open lot to add more cutting to it";
 
   // A saved cutting's item already exists, even when its lot is not in the open-lot list.
-  const itemHint = locked || matchedLot
-    ? "From the lot"
-    : matchedArticle
-      ? `Existing item · ${matchedArticle.code}${matchedArticle.defaultMarker ? " · saved measurements filled in" : ""}`
-      : articleName.trim()
-        ? "New item · created when you save"
-        : undefined;
+  const itemHint =
+    locked || matchedLot
+      ? "From the lot"
+      : matchedArticle
+        ? `Existing item · ${matchedArticle.code}${matchedArticle.defaultMarker ? " · saved measurements filled in" : ""}`
+        : articleName.trim()
+          ? "New item · created when you save"
+          : undefined;
 
   return (
     <div className="rounded-lg border bg-card p-4 sm:p-5">
@@ -138,16 +163,13 @@ export function StepDetails({
             control={form.control}
             name="articleName"
             render={({ field }) => (
-              <SuggestInput
-                {...fieldProps("article-name", errorAt("articleName"))}
-                suggestions={articles.map((article) => article.name)}
+              <ItemPicker
+                id="article-name"
                 value={field.value}
                 onChange={field.onChange}
-                onBlur={field.onBlur}
-                name={field.name}
-                placeholder="e.g. Polo T-Shirt"
-                readOnly={fixed}
-                className={fixed ? "bg-muted" : undefined}
+                invalid={Boolean(errorAt("articleName"))}
+                disabled={fixed}
+                canManage={canManageItems}
               />
             )}
           />
@@ -156,7 +178,11 @@ export function StepDetails({
           id="lot-fabric"
           label="Fabric"
           error={errorAt("fabricId")}
-          description={storeKg === null ? "Fabrics weighed in kg" : `${microKgText(storeKg)} in store`}
+          description={
+            storeKg === null
+              ? "Cut by kg, or by metre for fabric bought by the metre"
+              : `${microKgText(storeKg, unit)} in store${unit === "METER" ? " · cut by the metre" : ""}`
+          }
         >
           <Controller
             control={form.control}
@@ -184,14 +210,28 @@ export function StepDetails({
         </Field>
 
         <Field id="cutting-date" label="Cutting date" error={errorAt("cuttingDate")}>
-          <Input {...fieldProps("cutting-date", errorAt("cuttingDate"))} type="date" max={todayISO()} {...form.register("cuttingDate")} />
+          <Input
+            {...fieldProps("cutting-date", errorAt("cuttingDate"))}
+            type="date"
+            max={todayISO()}
+            {...form.register("cuttingDate")}
+          />
         </Field>
-        <Field id="cutting-master" label="Cutting master" error={errorAt("cuttingMasterId")} description="Needed before fabric is issued">
+        <Field
+          id="cutting-master"
+          label="Cutting master"
+          error={errorAt("cuttingMasterId")}
+          description="Needed before fabric is issued"
+        >
           <Controller
             control={form.control}
             name="cuttingMasterId"
             render={({ field }) => (
-              <MasterSelect value={field.value} onChange={field.onChange} invalid={Boolean(errorAt("cuttingMasterId"))} />
+              <MasterSelect
+                value={field.value}
+                onChange={field.onChange}
+                invalid={Boolean(errorAt("cuttingMasterId"))}
+              />
             )}
           />
         </Field>

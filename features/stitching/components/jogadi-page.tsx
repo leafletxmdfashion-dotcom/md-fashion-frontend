@@ -64,9 +64,10 @@ function TeamDialog({ team, onOpenChange }: { team: JogadiTeam | null; onOpenCha
   const [notes, setNotes] = useState(team?.notes ?? "");
 
   const [rows, setRows] = useState<MemberRow[]>(
-    team?.members.map((member) => ({ karigarId: member.karigarId, share: member.sharePercent?.toString() ?? "" })) ?? [
-      { karigarId: "", share: "" },
-    ],
+    team?.members.map((member) => ({
+      karigarId: member.karigarId,
+      share: member.sharePercent?.toString() ?? "",
+    })) ?? [{ karigarId: "", share: "" }],
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -78,10 +79,18 @@ function TeamDialog({ team, onOpenChange }: { team: JogadiTeam | null; onOpenCha
     ...(karigars.data ?? []),
     ...(team?.members ?? [])
       .filter((member) => !karigars.data?.some((karigar) => karigar.id === member.karigarId))
-      .map((member) => ({ id: member.karigarId, number: null, name: member.name, category: member.category })),
+      .map((member) => ({
+        id: member.karigarId,
+        number: null,
+        name: member.name,
+        category: member.category,
+      })),
   ];
 
-  const items = options.map((karigar) => ({ value: karigar.id, label: karigar.name }));
+  const items = options.map((karigar) => ({
+    value: karigar.id,
+    label: karigar.name,
+  }));
   const problem = shareProblem(rows);
 
   const submit = async (event: React.FormEvent) => {
@@ -182,12 +191,17 @@ function TeamDialog({ team, onOpenChange }: { team: JogadiTeam | null; onOpenCha
                       </SelectTrigger>
                       <SelectContent>
                         {options.map((karigar) => (
-                          <SelectItem key={karigar.id} value={karigar.id}>
+                          <SelectItem
+                            key={karigar.id}
+                            value={karigar.id}
+                            description={
+                              <>
+                                {karigar.number !== null ? `${karigarCode(karigar.number)} · ` : ""}
+                                {CATEGORY_LABEL[karigar.category]}
+                              </>
+                            }
+                          >
                             {karigar.name}
-                            <span className="ml-1.5 text-xs text-muted-foreground">
-                              {karigar.number !== null ? `${karigarCode(karigar.number)} · ` : ""}
-                              {CATEGORY_LABEL[karigar.category]}
-                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -240,7 +254,7 @@ function TeamDialog({ team, onOpenChange }: { team: JogadiTeam | null; onOpenCha
               <p className="text-xs text-muted-foreground">
                 No karigars yet.{" "}
                 <Link href="/karigar" className="text-link hover:underline">
-                  Add them in Karigar Master
+                  Add them in Staff &amp; Karigar
                 </Link>
                 .
               </p>
@@ -288,7 +302,10 @@ const STATUS_ITEMS = [
 export function JogadiPage() {
   const { data: user } = useCurrentUser();
   const teams = useTeams();
-  const [editing, setEditing] = useState<{ team: JogadiTeam | null; key: number } | null>(null);
+  const [editing, setEditing] = useState<{
+    team: JogadiTeam | null;
+    key: number;
+  } | null>(null);
   const canManage = hasPermission(user, "karigar.manage");
   const { filters, setFilters, clearFilters, isFiltered } = useUrlFilters(["q", "status"]);
   // ponytail: teams are few (tens), so they are searched here rather than on the server.
